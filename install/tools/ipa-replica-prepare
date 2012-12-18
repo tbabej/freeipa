@@ -45,39 +45,6 @@ from ipapython import dogtag
 from ipalib import api, errors, util
 from ipapython.dn import DN
 
-def parse_options():
-
-    options, args = parser.parse_args()
-
-    if not options.ip_address:
-        if options.reverse_zone:
-            parser.error("You cannot specify a --reverse-zone option without the --ip-address option")
-        if options.no_reverse:
-            parser.error("You cannot specify a --no-reverse option without the --ip-address option")
-    elif options.reverse_zone and options.no_reverse:
-        parser.error("You cannot specify a --reverse-zone option together with --no-reverse")
-
-    # If any of the PKCS#12 options are selected, all are required. Create a
-    # list of the options and count it to enforce that all are required without
-    # having a huge set of it blocks.
-    if options.setup_pkinit:
-        pkcs12 = [options.dirsrv_pkcs12, options.dirsrv_pin,
-                  options.http_pkcs12, options.http_pin,
-                  options.pkinit_pkcs12, options.pkinit_pin]
-        num = 6
-    else:
-        pkcs12 = [options.dirsrv_pkcs12, options.dirsrv_pin,
-                  options.http_pkcs12, options.http_pin]
-        num = 4
-    cnt = pkcs12.count(None)
-    if cnt > 0 and cnt < num:
-        parser.error("All PKCS#12 options are required if any are used.")
-
-    if len(args) != 1:
-        parser.error("must provide the fully-qualified name of the replica")
-
-    return options, args
-
 def get_subject_base(host_name, dm_password, suffix):
     try:
         conn = ldap2(shared_instance=False, base_dn=suffix)

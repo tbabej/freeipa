@@ -69,3 +69,33 @@ class ReplicaPrepare(admintool.AdminTool):
         group.add_option("--pkinit_pin", dest="pkinit_pin", metavar="PIN",
             help="PIN for the KDC pkinit PKCS#12 file")
         parser.add_option_group(group)
+
+    def validate_options(self):
+        options = self.options
+        if not options.ip_address:
+            if options.reverse_zone:
+                self.option_parser.error("You cannot specify a --reverse-zone "
+                    "option without the --ip-address option")
+            if options.no_reverse:
+                self.option_parser.error("You cannot specify a --no-reverse "
+                    "option without the --ip-address option")
+        elif options.reverse_zone and options.no_reverse:
+            self.option_parser.error("You cannot specify a --reverse-zone "
+                "option together with --no-reverse")
+
+        # If any of the PKCS#12 options are selected, all are required.
+        pkcs12_opts = [options.dirsrv_pkcs12, options.dirsrv_pin,
+                    options.http_pkcs12, options.http_pin]
+        if options.setup_pkinit:
+            pkcs12_opts.extend([options.pkinit_pkcs12, options.pkinit_pin])
+        if pkcs12_opts[0]:
+            pkcs12_okay = all(opt for opt in pkcs12_opts)
+        else:
+            pkcs12_okay = all(opt is None for opt in pkcs12_opts)
+        if not pkcs12_okay:
+            self.option_parser.error(
+                "All PKCS#12 options are required if any are used.")
+
+        if len(self.args) != 1:
+            self.option_parser.error(
+                "must provide the fully-qualified name of the replica")
