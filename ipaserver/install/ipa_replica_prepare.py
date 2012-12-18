@@ -21,7 +21,12 @@
 
 from optparse import OptionGroup
 
+from ipaserver.install import certs, installutils
+from ipaserver.plugins.ldap2 import ldap2
 from ipapython import ipautil, admintool
+from ipapython.dn import DN
+from ipalib import api
+from ipalib import errors
 
 
 class ReplicaPrepare(admintool.AdminTool):
@@ -72,6 +77,9 @@ class ReplicaPrepare(admintool.AdminTool):
 
     def validate_options(self):
         options = self.options
+        super(ReplicaPrepare, self).validate_options(needs_root=True)
+        installutils.check_server_configuration()
+
         if not options.ip_address:
             if options.reverse_zone:
                 self.option_parser.error("You cannot specify a --reverse-zone "
@@ -96,6 +104,59 @@ class ReplicaPrepare(admintool.AdminTool):
             self.option_parser.error(
                 "All PKCS#12 options are required if any are used.")
 
-        if len(self.args) != 1:
+        if len(self.args) < 1:
             self.option_parser.error(
                 "must provide the fully-qualified name of the replica")
+        elif len(self.args) > 1:
+            self.option_parser.error(
+                "must provide exactly one name for the replica")
+        else:
+            [self.replica_fqdn] = self.args
+
+        api.bootstrap(in_server=True)
+        api.finalize()
+
+        #Automatically disable pkinit w/ dogtag until that is supported
+        #[certs.ipa_self_signed() must be called only after api.finalize()]
+        if not options.pkinit_pkcs12 and not certs.ipa_self_signed():
+            options.setup_pkinit = False
+
+        # FIXME: certs.ipa_self_signed_master return value can be
+        # True, False, None, with different meanings.
+        # So, we need to explicitly compare to False
+        if certs.ipa_self_signed_master() == False:
+            raise admintool.ScriptError("A selfsign CA backend can only "
+                "prepare on the original master")
+
+    def ask_for_options(self):
+        options = self.options
+        super(ReplicaPrepare, self).ask_for_options()
+
+        # get the directory manager password
+        dirman_password = options.password
+        if not options.password:
+            dirman_password = installutils.read_password(
+                "Directory Manager (existing master)",
+                confirm=False, validate=False)
+            if dirman_password is None:
+                raise admintool.ScriptError(
+                    "Directory Manager password required")
+
+        # Try out the password
+        try:
+            conn = ldap2(shared_instance=False)
+            conn.connect(bind_dn=DN(('cn', 'directory manager')),
+                         bind_pw=dirman_password)
+            conn.disconnect()
+        except errors.ACIError:
+            raise admintool.ScriptError("The password provided is incorrect "
+                "for LDAP server %s" % api.env.host)
+        except errors.LDAPError:
+            raise admintool.ScriptError(
+                "Unable to connect to LDAP server %s" % api.env.host)
+        except errors.DatabaseError, e:
+            raise admintool.ScriptError(e.desc)
+
+    def run(self):
+        options = self.options
+        super(ReplicaPrepare, self).run()
