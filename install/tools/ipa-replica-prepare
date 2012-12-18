@@ -1,7 +1,7 @@
 #! /usr/bin/python -E
-# Authors: Karl MacMillan <kmacmillan@mentalrootkit.com>
+# Authors: Petr Viktorin <pviktori@redhat.com>
 #
-# Copyright (C) 2007  Red Hat
+# Copyright (C) 2012  Red Hat
 # see file 'COPYING' for use and warranty information
 #
 # This program is free software; you can redistribute it and/or modify
@@ -17,6 +17,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
+
+from ipaserver.install.ipa_replica_prepare import ReplicaPrepare
+
+ReplicaPrepare.run_cli()
+
+
+###################################################################################
+exit()
 
 import sys
 
@@ -34,40 +42,10 @@ from ipaserver.install.installutils import resolve_host, BadHostError, HostLooku
 from ipaserver.plugins.ldap2 import ldap2
 from ipapython import version
 from ipapython import dogtag
-from ipapython.config import IPAOptionParser
 from ipalib import api, errors, util
 from ipapython.dn import DN
 
 def parse_options():
-    usage = "%prog [options] FQDN (e.g. replica.example.com)"
-    parser = IPAOptionParser(usage=usage, version=version.VERSION)
-
-    parser.add_option("--dirsrv_pkcs12", dest="dirsrv_pkcs12",
-                      help="install certificate for the directory server")
-    parser.add_option("--http_pkcs12", dest="http_pkcs12",
-                      help="install certificate for the http server")
-    parser.add_option("--pkinit_pkcs12", dest="pkinit_pkcs12",
-                      help="install certificate for the KDC")
-    parser.add_option("--dirsrv_pin", dest="dirsrv_pin",
-                      help="PIN for the Directory Server PKCS#12 file")
-    parser.add_option("--http_pin", dest="http_pin",
-                      help="PIN for the Apache Server PKCS#12 file")
-    parser.add_option("--pkinit_pin", dest="pkinit_pin",
-                      help="PIN for the KDC pkinit PKCS#12 file")
-    parser.add_option("-p", "--password", dest="password",
-                      help="Directory Manager (existing master) password")
-    parser.add_option("--ip-address", dest="ip_address",
-                      type="ip", help="Add A and PTR records of the future replica")
-    parser.add_option("--reverse-zone", dest="reverse_zone",
-                      help="The reverse DNS zone to use")
-    parser.add_option("--no-reverse", dest="no_reverse", action="store_true",
-                      default=False, help="Do not create reverse DNS zone")
-    parser.add_option("--ca", dest="ca_file", default="/root/cacert.p12",
-                      help="Location of CA PKCS#12 file, default /root/cacert.p12")
-    parser.add_option("--no-pkinit", dest="setup_pkinit", action="store_false",
-                      default=True, help="disables pkinit setup steps")
-    parser.add_option("--debug", dest="debug", action="store_true",
-                      default=False, help="enable debugging")
 
     options, args = parser.parse_args()
 
@@ -349,7 +327,6 @@ def main():
     else:
         try:
             if not certs.ipa_self_signed():
-                # FIXME, need option for location of CA backup
                 if ipautil.file_exists(options.ca_file):
                     shutil.copy(options.ca_file, dir + "/cacert.p12")
                 else:
