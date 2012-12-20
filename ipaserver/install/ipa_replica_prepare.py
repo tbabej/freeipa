@@ -19,9 +19,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+import os
+import tempfile
 from optparse import OptionGroup
 
 from ipaserver.install import certs, installutils, bindinstance, dsinstance
+from ipaserver.install.replication import enable_replication_version_checking
 from ipaserver.plugins.ldap2 import ldap2
 from ipaserver.install.bindinstance import dns_container_exists
 from ipapython import ipautil, admintool, dogtag
@@ -143,12 +146,12 @@ class ReplicaPrepare(admintool.AdminTool):
         super(ReplicaPrepare, self).ask_for_options()
 
         # get the directory manager password
-        dirman_password = options.password
+        self.dirman_password = options.password
         if not options.password:
-            dirman_password = installutils.read_password(
+            self.dirman_password = installutils.read_password(
                 "Directory Manager (existing master)",
                 confirm=False, validate=False)
-            if dirman_password is None:
+            if self.dirman_password is None:
                 raise admintool.ScriptError(
                     "Directory Manager password required")
 
@@ -156,7 +159,7 @@ class ReplicaPrepare(admintool.AdminTool):
         try:
             conn = ldap2(shared_instance=False)
             conn.connect(bind_dn=DN(('cn', 'directory manager')),
-                         bind_pw=dirman_password)
+                         bind_pw=self.dirman_password)
             conn.disconnect()
         except errors.ACIError:
             raise admintool.ScriptError("The password provided is incorrect "
@@ -176,7 +179,7 @@ class ReplicaPrepare(admintool.AdminTool):
                 if options.ip_address is None:
                     if dns_container_exists(
                             api.env.host, api.env.basedn,
-                            dm_password=dirman_password,
+                            dm_password=self.dirman_password,
                             ldapi=True, realm=api.env.realm):
                         self.log.info('Add the --ip-address argument to '
                             'create a DNS entry.')
@@ -189,7 +192,7 @@ class ReplicaPrepare(admintool.AdminTool):
 
         if options.ip_address:
             if not dns_container_exists(api.env.host, api.env.basedn,
-                                        dm_password=dirman_password,
+                                        dm_password=self.dirman_password,
                                         ldapi=True, realm=api.env.realm):
                 raise admintool.ScriptError("You can't add a DNS record "
                     "because DNS is not set up.")
@@ -210,3 +213,36 @@ class ReplicaPrepare(admintool.AdminTool):
     def run(self):
         options = self.options
         super(ReplicaPrepare, self).run()
+
+        self.log.info("Preparing replica for %s from %s",
+            self.replica_fqdn, api.env.host)
+        enable_replication_version_checking(api.env.host, api.env.realm,
+            self.dirman_password)
+
+        subject_base = self.get_subject_base(
+            api.env.host, self.dirman_password,
+            ipautil.realm_to_suffix(api.env.realm))
+
+        top_dir = tempfile.mkdtemp("ipa")
+        info_dir = top_dir + "/realm_info"
+        os.mkdir(info_dir, 0700)
+
+        passwd_fname = os.path.join(info_dir, "dirsrv_pin.txt")
+        with open(passwd_fname, "w") as fd:
+            fd.write("%s\n" % (options.dirsrv_pin or ''))
+
+    def get_subject_base(self, host_name, dm_password, suffix):
+        try:
+            conn = ldap2(shared_instance=False, base_dn=suffix)
+            conn.connect(
+                bind_dn=DN(('cn', 'directory manager')), bind_pw=dm_password)
+        except errors.ExecutionError, e:
+            self.log.critical(
+                "Could not connect to the Directory Server on %s", host_name)
+            raise e
+        dn, entry_attrs = conn.get_ipa_config()
+        conn.disconnect()
+        subject_base = entry_attrs.get('ipacertificatesubjectbase', [None])[0]
+        if subject_base is not None:
+            subject_base = DN(subject_base)
+        return subject_base

@@ -26,7 +26,7 @@ ReplicaPrepare.run_cli()
 ###################################################################################
 exit()
 
-import tempfile, shutil, os, pwd
+import shutil, pwd
 from ipapython.ipa_log_manager import *
 import traceback
 from ConfigParser import SafeConfigParser
@@ -35,24 +35,9 @@ import krbV
 from ipapython import ipautil
 from ipaserver.install import dsinstance
 from ipaserver.install.bindinstance import add_zone, add_fwd_rr, add_ptr_rr
-from ipaserver.install.replication import enable_replication_version_checking
 from ipaserver.install.installutils import resolve_host, BadHostError, HostLookupError
 from ipapython import version
 from ipalib import util
-
-def get_subject_base(host_name, dm_password, suffix):
-    try:
-        conn = ldap2(shared_instance=False, base_dn=suffix)
-        conn.connect(bind_dn=DN(('cn', 'directory manager')), bind_pw=dm_password)
-    except errors.ExecutionError, e:
-        root_logger.critical("Could not connect to the Directory Server on %s" % host_name)
-        raise e
-    (dn, entry_attrs) = conn.get_ipa_config()
-    conn.disconnect()
-    subject_base = entry_attrs.get('ipacertificatesubjectbase', [None])[0]
-    if subject_base is not None:
-        subject_base = DN(subject_base)
-    return subject_base
 
 def export_certdb(realm_name, ds_dir, dir, passwd_fname, fname, hostname, subject_base=None, is_kdc=False):
     """realm is the kerberos realm for the IPA server.
@@ -171,29 +156,6 @@ def copy_files(realm_name, dir):
 
 
 def main():
-
-
-    ds_dir = dsinstance.config_dirname(dsinstance.realm_to_serverid(api.env.realm))
-
-    print "Preparing replica for %s from %s" % (replica_fqdn, api.env.host)
-    enable_replication_version_checking(api.env.host, api.env.realm,
-        dirman_password)
-
-    subject_base = get_subject_base(api.env.host, dirman_password, ipautil.realm_to_suffix(api.env.realm))
-
-    top_dir = tempfile.mkdtemp("ipa")
-    dir = top_dir + "/realm_info"
-    os.mkdir(dir, 0700)
-
-    if options.dirsrv_pin:
-        passwd = options.dirsrv_pin
-    else:
-        passwd = ""
-
-    passwd_fname = dir + "/dirsrv_pin.txt"
-    fd = open(passwd_fname, "w")
-    fd.write("%s\n" % passwd)
-    fd.close()
 
     if options.dirsrv_pkcs12:
         print "Copying SSL certificate for the Directory Server from %s" % options.dirsrv_pkcs12
