@@ -21,9 +21,10 @@
 
 from optparse import OptionGroup
 
-from ipaserver.install import certs, installutils
+from ipaserver.install import certs, installutils, bindinstance, dsinstance
 from ipaserver.plugins.ldap2 import ldap2
-from ipapython import ipautil, admintool
+from ipaserver.install.bindinstance import dns_container_exists
+from ipapython import ipautil, admintool, dogtag
 from ipapython.dn import DN
 from ipalib import api
 from ipalib import errors
@@ -116,6 +117,9 @@ class ReplicaPrepare(admintool.AdminTool):
         api.bootstrap(in_server=True)
         api.finalize()
 
+        if api.env.host == self.replica_fqdn:
+            raise admintool.ScriptError("You can't create a replica on itself")
+
         #Automatically disable pkinit w/ dogtag until that is supported
         #[certs.ipa_self_signed() must be called only after api.finalize()]
         if not options.pkinit_pkcs12 and not certs.ipa_self_signed():
@@ -127,6 +131,12 @@ class ReplicaPrepare(admintool.AdminTool):
         if certs.ipa_self_signed_master() == False:
             raise admintool.ScriptError("A selfsign CA backend can only "
                 "prepare on the original master")
+
+        config_dir = dsinstance.config_dirname(
+            dsinstance.realm_to_serverid(api.env.realm))
+        if not ipautil.dir_exists(config_dir):
+            raise admintool.ScriptError(
+                "could not find directory instance: %s" % config_dir)
 
     def ask_for_options(self):
         options = self.options
@@ -156,6 +166,46 @@ class ReplicaPrepare(admintool.AdminTool):
                 "Unable to connect to LDAP server %s" % api.env.host)
         except errors.DatabaseError, e:
             raise admintool.ScriptError(e.desc)
+
+        # Validate more options using the password
+        try:
+            installutils.verify_fqdn(self.replica_fqdn, local_hostname=False)
+        except installutils.BadHostError, e:
+            msg = str(e)
+            if isinstance(e, installutils.HostLookupError):
+                if options.ip_address is None:
+                    if dns_container_exists(
+                            api.env.host, api.env.basedn,
+                            dm_password=dirman_password,
+                            ldapi=True, realm=api.env.realm):
+                        self.log.info('Add the --ip-address argument to '
+                            'create a DNS entry.')
+                    raise
+                else:
+                    # The host doesn't exist in DNS but we're adding it.
+                    pass
+            else:
+                raise
+
+        if options.ip_address:
+            if not dns_container_exists(api.env.host, api.env.basedn,
+                                        dm_password=dirman_password,
+                                        ldapi=True, realm=api.env.realm):
+                raise admintool.ScriptError("You can't add a DNS record "
+                    "because DNS is not set up.")
+            if options.reverse_zone and not bindinstance.verify_reverse_zone(
+                    options.reverse_zone, options.ip_address):
+                raise admintool.ScriptError("Invalid reverse zone")
+
+        if (not certs.ipa_self_signed() and
+                not ipautil.file_exists(
+                    dogtag.configured_constants().CS_CFG_PATH) and
+                not options.dirsrv_pin):
+            self.log.info("If you installed IPA with your own certificates "
+                "using PKCS#12 files you must provide PKCS#12 files for any "
+                "replicas you create as well.")
+            raise admintool.ScriptError("The replica must be created on the "
+                "primary IPA server.")
 
     def run(self):
         options = self.options

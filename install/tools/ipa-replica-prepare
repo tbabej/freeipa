@@ -33,12 +33,11 @@ from ConfigParser import SafeConfigParser
 import krbV
 
 from ipapython import ipautil
-from ipaserver.install import bindinstance, dsinstance
-from ipaserver.install.bindinstance import add_zone, add_fwd_rr, add_ptr_rr, dns_container_exists
+from ipaserver.install import dsinstance
+from ipaserver.install.bindinstance import add_zone, add_fwd_rr, add_ptr_rr
 from ipaserver.install.replication import enable_replication_version_checking
 from ipaserver.install.installutils import resolve_host, BadHostError, HostLookupError
 from ipapython import version
-from ipapython import dogtag
 from ipalib import util
 
 def get_subject_base(host_name, dm_password, suffix):
@@ -54,12 +53,6 @@ def get_subject_base(host_name, dm_password, suffix):
     if subject_base is not None:
         subject_base = DN(subject_base)
     return subject_base
-
-def check_ipa_configuration(realm_name):
-    config_dir = dsinstance.config_dirname(dsinstance.realm_to_serverid(realm_name))
-    if not ipautil.dir_exists(config_dir):
-        root_logger.error("could not find directory instance: %s" % config_dir)
-        sys.exit(1)
 
 def export_certdb(realm_name, ds_dir, dir, passwd_fname, fname, hostname, subject_base=None, is_kdc=False):
     """realm is the kerberos realm for the IPA server.
@@ -180,43 +173,6 @@ def copy_files(realm_name, dir):
 def main():
 
 
-
-    try:
-        installutils.verify_fqdn(replica_fqdn, local_hostname=False)
-    except BadHostError, e:
-        msg = str(e)
-        if isinstance(e, HostLookupError):
-            if options.ip_address is None:
-                if dns_container_exists(api.env.host, api.env.basedn,
-                                        dm_password=dirman_password,
-                                        ldapi=True, realm=api.env.realm):
-                    msg += '\nAdd the --ip-address argument to create a DNS entry.'
-                sys.exit(msg)
-            else:
-                # The host doesn't exist in DNS but we're adding it.
-                pass
-        else:
-            sys.exit(msg)
-
-    if options.ip_address:
-        if not dns_container_exists(api.env.host, api.env.basedn,
-                                    dm_password=dirman_password,
-                                    ldapi=True, realm=api.env.realm):
-            print "You can't add a DNS record because DNS is not set up."
-            sys.exit(1)
-        if options.reverse_zone and not bindinstance.verify_reverse_zone(options.reverse_zone, options.ip_address):
-            sys.exit(1)
-
-    if (not certs.ipa_self_signed() and
-            not ipautil.file_exists(dogtag.configured_constants().CS_CFG_PATH) and
-            not options.dirsrv_pin):
-        sys.exit("The replica must be created on the primary IPA server.\nIf you installed IPA with your own certificates using PKCS#12 files you must provide PKCS#12 files for any replicas you create as well.")
-
-    check_ipa_configuration(api.env.realm)
-
-    if api.env.host == replica_fqdn:
-        print "You can't create a replica on itself"
-        sys.exit(1)
     ds_dir = dsinstance.config_dirname(dsinstance.realm_to_serverid(api.env.realm))
 
     print "Preparing replica for %s from %s" % (replica_fqdn, api.env.host)
