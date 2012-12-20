@@ -20,6 +20,8 @@
 #
 
 import os
+import sys
+import shutil
 import tempfile
 from optparse import OptionGroup
 
@@ -219,17 +221,19 @@ class ReplicaPrepare(admintool.AdminTool):
         enable_replication_version_checking(api.env.host, api.env.realm,
             self.dirman_password)
 
-        subject_base = self.get_subject_base(
+        self.subject_base = self.get_subject_base(
             api.env.host, self.dirman_password,
             ipautil.realm_to_suffix(api.env.realm))
 
-        top_dir = tempfile.mkdtemp("ipa")
-        info_dir = top_dir + "/realm_info"
-        os.mkdir(info_dir, 0700)
+        self.top_dir = tempfile.mkdtemp("ipa")
+        self.dir = os.path.join(self.top_dir, "realm_info")
+        os.mkdir(self.dir, 0700)
 
-        passwd_fname = os.path.join(info_dir, "dirsrv_pin.txt")
-        with open(passwd_fname, "w") as fd:
+        self.passwd_fname = os.path.join(self.dir, "dirsrv_pin.txt")
+        with open(self.passwd_fname, "w") as fd:
             fd.write("%s\n" % (options.dirsrv_pin or ''))
+
+        self.copy_ds_certificate()
 
     def get_subject_base(self, host_name, dm_password, suffix):
         try:
@@ -246,3 +250,116 @@ class ReplicaPrepare(admintool.AdminTool):
         if subject_base is not None:
             subject_base = DN(subject_base)
         return subject_base
+
+    def copy_ds_certificate(self):
+        options = self.options
+
+        if options.dirsrv_pkcs12:
+            self.log.info(
+                "Copying SSL certificate for the Directory Server from %s",
+                options.dirsrv_pkcs12)
+            self.copy_info_file(options.dirsrv_pkcs12, "dscert.p12")
+        else:
+            if not certs.ipa_self_signed():
+                if ipautil.file_exists(options.ca_file):
+                    self.copy_info_file(options.ca_file, "cacert.p12")
+                else:
+                    raise admintool.ScriptError("Root CA PKCS#12 not "
+                        "found in %s" % options.ca_file)
+            self.log.info(
+                "Creating SSL certificate for the Directory Server")
+            try:
+                self.export_certdb("dscert")
+            except errors.CertificateOperationError, e:
+                raise admintool.ScriptError(str(e))
+                sys.exit(1)
+
+        if not certs.ipa_self_signed():
+            self.log.info(
+                "Creating SSL certificate for the dogtag Directory Server")
+            try:
+                self.export_certdb("dogtagcert")
+            except errors.CertificateOperationError, e:
+                raise admintool.ScriptError(str(e))
+            self.log.info("Saving dogtag Directory Server port")
+            port_fname = os.path.join(
+                self.dir, "dogtag_directory_port.txt")
+            with open(port_fname, "w") as fd:
+                fd.write("%s\n" % str(dogtag.configured_constants().DS_PORT))
+
+    def copy_info_file(self, source, *dest):
+        try:
+            shutil.copy(source, os.path.join(self.dir, *dest))
+        except IOError, e:
+            raise admintool.ScriptError("File copy failed: %s" % e)
+
+    def remove_info_file(self, filename):
+        """Remove a file from the info directory
+
+        :param filename: The unneeded file (relative to the info directory)
+        """
+        remove_file(os.path.join(self.dir, filename))
+
+    def export_certdb(self, fname, is_kdc=False):
+        """
+        fname is the filename of the PKCS#12 file for this cert (minus the .p12).
+        hostname is the FQDN of the server we're creating a cert for.
+
+        The subject is handled by certs.CertDB:create_server_cert()
+        """
+        options = self.options
+        hostname = self.replica_fqdn
+        subject_base = self.subject_base
+
+        if is_kdc:
+            nickname = "KDC-Cert"
+        else:
+            nickname = "Server-Cert"
+
+        try:
+            self_signed = certs.ipa_self_signed()
+
+            db = certs.CertDB(
+                api.env.realm, nssdir=self.dir, subject_base=subject_base)
+            db.create_passwd_file()
+            ca_db = certs.CertDB(
+                api.env.realm, host_name=api.env.host, subject_base=subject_base)
+            if is_kdc:
+                ca_db.create_kdc_cert("KDC-Cert", hostname, self.dir)
+            else:
+                db.create_from_cacert(ca_db.cacert_fname)
+                db.create_server_cert(nickname, hostname, ca_db)
+        except Exception, e:
+            raise e
+
+        pkcs12_fname = os.path.join(self.dir, fname + ".p12")
+
+        try:
+            if is_kdc:
+                ca_db.export_pem_p12(pkcs12_fname, self.passwd_fname,
+                    nickname, os.path.join(self.dir, "kdc.pem"))
+            else:
+                db.export_pkcs12(pkcs12_fname, self.passwd_fname, nickname)
+        except ipautil.CalledProcessError, e:
+            print "error exporting Server certificate: " + str(e)
+            remove_file(pkcs12_fname)
+            remove_file(self.passwd_fname)
+
+        self.remove_info_file("cert8.db")
+        self.remove_info_file("key3.db")
+        self.remove_info_file("secmod.db")
+        self.remove_info_file("noise.txt")
+        if is_kdc:
+            self.remove_info_file("kdc.pem")
+        orig_filename = self.passwd_fname + ".orig"
+        if ipautil.file_exists(orig_filename):
+            remove_file(orig_filename)
+
+
+def remove_file(fname, ignore_errors=True):
+    """Remove the given file, optionally ignoring any OSError"""
+    try:
+        os.remove(fname)
+    except OSError, e:
+        if not ignore_errors:
+            raise e
