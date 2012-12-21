@@ -230,19 +230,21 @@ class ReplicaPrepare(admintool.AdminTool):
         self.top_dir = tempfile.mkdtemp("ipa")
         self.dir = os.path.join(self.top_dir, "realm_info")
         os.mkdir(self.dir, 0700)
+        try:
+            self.copy_ds_certificate()
 
-        self.copy_ds_certificate()
+            self.copy_httpd_certificate()
 
-        self.copy_httpd_certificate()
+            if options.setup_pkinit:
+                self.copy_pkinit_certificate()
 
-        if options.setup_pkinit:
-            self.copy_pkinit_certificate()
+            self.copy_misc_files()
 
-        self.copy_misc_files()
+            self.save_config()
 
-        self.save_config()
-
-        self.package_replica_file()
+            self.package_replica_file()
+        finally:
+            shutil.rmtree(self.top_dir)
 
     def get_subject_base(self, host_name, dm_password, suffix):
         try:

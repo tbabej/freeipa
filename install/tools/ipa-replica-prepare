@@ -42,8 +42,6 @@ from ipalib import util
 
 def main():
 
-    shutil.rmtree(dir)
-
     if options.ip_address:
         print "Adding DNS records for %s" % replica_fqdn
         api.Backend.ldap2.connect(bind_dn=DN(('cn', 'Directory Manager')), bind_pw=dirman_password)
