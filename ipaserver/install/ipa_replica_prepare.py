@@ -236,6 +236,8 @@ class ReplicaPrepare(admintool.AdminTool):
         if options.setup_pkinit:
             self.copy_pkinit_certificate()
 
+        self.copy_misc_files()
+
     def get_subject_base(self, host_name, dm_password, suffix):
         try:
             conn = ldap2(shared_instance=False, base_dn=suffix)
@@ -333,9 +335,32 @@ class ReplicaPrepare(admintool.AdminTool):
             except errors.CertificateOperationError, e:
                 raise admintool.ScriptError(str(e))
 
-    def copy_info_file(self, source, *dest):
+    def copy_misc_files(self):
+        self.log.info("Copying additional files")
+
+        self.copy_info_file("/usr/share/ipa/html/ca.crt", "ca.crt")
+        preferences_filename = "/usr/share/ipa/html/preferences.html"
+        if ipautil.file_exists(preferences_filename):
+            self.copy_info_file(preferences_filename, "preferences.html")
+            self.copy_info_file("/usr/share/ipa/html/krb.js", "krb.js")
+            self.copy_info_file(
+                "/usr/share/ipa/html/kerberosauth.xpi", "kerberosauth.xpi")
+            self.copy_info_file(
+                "/usr/share/ipa/html/configure.jar", "configure.jar")
+        cacert_filename = "/var/kerberos/krb5kdc/cacert.pem"
+        if ipautil.file_exists(cacert_filename):
+            self.copy_info_file(cacert_filename, "cacert.pem")
+
+    def copy_info_file(self, source, dest):
+        """Copy a file into the info directory
+
+        :param source: The source file (an absolute path)
+        :param dest: The destination file (relative to the info directory)
+        """
+        dest_path = os.path.join(self.dir, dest)
+        self.log.debug('Copying %s to %s', source, dest_path)
         try:
-            shutil.copy(source, os.path.join(self.dir, *dest))
+            shutil.copy(source, dest_path)
         except IOError, e:
             raise admintool.ScriptError("File copy failed: %s" % e)
 
