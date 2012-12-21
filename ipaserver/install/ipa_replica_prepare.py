@@ -229,11 +229,9 @@ class ReplicaPrepare(admintool.AdminTool):
         self.dir = os.path.join(self.top_dir, "realm_info")
         os.mkdir(self.dir, 0700)
 
-        self.passwd_fname = os.path.join(self.dir, "dirsrv_pin.txt")
-        with open(self.passwd_fname, "w") as fd:
-            fd.write("%s\n" % (options.dirsrv_pin or ''))
-
         self.copy_ds_certificate()
+
+        self.copy_httpd_certificate()
 
     def get_subject_base(self, host_name, dm_password, suffix):
         try:
@@ -254,6 +252,10 @@ class ReplicaPrepare(admintool.AdminTool):
     def copy_ds_certificate(self):
         options = self.options
 
+        passwd_fname = os.path.join(self.dir, "dirsrv_pin.txt")
+        with open(passwd_fname, "w") as fd:
+            fd.write("%s\n" % (options.dirsrv_pin or ''))
+
         if options.dirsrv_pkcs12:
             self.log.info(
                 "Copying SSL certificate for the Directory Server from %s",
@@ -269,7 +271,7 @@ class ReplicaPrepare(admintool.AdminTool):
             self.log.info(
                 "Creating SSL certificate for the Directory Server")
             try:
-                self.export_certdb("dscert")
+                self.export_certdb("dscert", passwd_fname)
             except errors.CertificateOperationError, e:
                 raise admintool.ScriptError(str(e))
                 sys.exit(1)
@@ -278,7 +280,7 @@ class ReplicaPrepare(admintool.AdminTool):
             self.log.info(
                 "Creating SSL certificate for the dogtag Directory Server")
             try:
-                self.export_certdb("dogtagcert")
+                self.export_certdb("dogtagcert", passwd_fname)
             except errors.CertificateOperationError, e:
                 raise admintool.ScriptError(str(e))
             self.log.info("Saving dogtag Directory Server port")
@@ -286,6 +288,28 @@ class ReplicaPrepare(admintool.AdminTool):
                 self.dir, "dogtag_directory_port.txt")
             with open(port_fname, "w") as fd:
                 fd.write("%s\n" % str(dogtag.configured_constants().DS_PORT))
+
+    def copy_httpd_certificate(self):
+        options = self.options
+
+        passwd_fname = os.path.join(self.dir, "http_pin.txt")
+        with open(passwd_fname, "w") as fd:
+            fd.write("%s\n" % (options.http_pin or ''))
+
+        if options.http_pkcs12:
+            self.log.info(
+                "Copying SSL certificate for the Web Server from %s",
+                options.http_pkcs12)
+            self.copy_info_file(options.http_pkcs12, "httpcert.p12")
+        else:
+            self.log.info("Creating SSL certificate for the Web Server")
+            try:
+                self.export_certdb("httpcert", passwd_fname)
+            except errors.CertificateOperationError, e:
+                raise admintool.ScriptError(str(e))
+            self.log.info("Exporting RA certificate")
+            if not certs.ipa_self_signed():
+                self.export_ra_pkcs12()
 
     def copy_info_file(self, source, *dest):
         try:
@@ -300,12 +324,12 @@ class ReplicaPrepare(admintool.AdminTool):
         """
         remove_file(os.path.join(self.dir, filename))
 
-    def export_certdb(self, fname, is_kdc=False):
-        """
-        fname is the filename of the PKCS#12 file for this cert (minus the .p12).
-        hostname is the FQDN of the server we're creating a cert for.
+    def export_certdb(self, fname, passwd_fname, is_kdc=False):
+        """Export a cert database
 
-        The subject is handled by certs.CertDB:create_server_cert()
+        :param fname: The file to export to (relative to the info directory)
+        :param passwd_fname: File that holds the cert DB password
+        :param is_kdc: True if we're exporting KDC certs
         """
         options = self.options
         hostname = self.replica_fqdn
@@ -336,14 +360,14 @@ class ReplicaPrepare(admintool.AdminTool):
 
         try:
             if is_kdc:
-                ca_db.export_pem_p12(pkcs12_fname, self.passwd_fname,
+                ca_db.export_pem_p12(pkcs12_fname, passwd_fname,
                     nickname, os.path.join(self.dir, "kdc.pem"))
             else:
-                db.export_pkcs12(pkcs12_fname, self.passwd_fname, nickname)
+                db.export_pkcs12(pkcs12_fname, passwd_fname, nickname)
         except ipautil.CalledProcessError, e:
             print "error exporting Server certificate: " + str(e)
             remove_file(pkcs12_fname)
-            remove_file(self.passwd_fname)
+            remove_file(passwd_fname)
 
         self.remove_info_file("cert8.db")
         self.remove_info_file("key3.db")
@@ -351,9 +375,23 @@ class ReplicaPrepare(admintool.AdminTool):
         self.remove_info_file("noise.txt")
         if is_kdc:
             self.remove_info_file("kdc.pem")
-        orig_filename = self.passwd_fname + ".orig"
+        orig_filename = passwd_fname + ".orig"
         if ipautil.file_exists(orig_filename):
             remove_file(orig_filename)
+
+    def export_ra_pkcs12(self):
+        agent_fd, agent_name = tempfile.mkstemp()
+        os.write(agent_fd, self.dirman_password)
+        os.close(agent_fd)
+
+        try:
+            db = certs.CertDB(api.env.realm, host_name=api.env.host)
+
+            if db.has_nickname("ipaCert"):
+                pkcs12_fname = os.path.join(self.dir, "ra.p12")
+                db.export_pkcs12(pkcs12_fname, agent_name, "ipaCert")
+        finally:
+            os.remove(agent_name)
 
 
 def remove_file(fname, ignore_errors=True):

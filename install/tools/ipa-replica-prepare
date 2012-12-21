@@ -40,32 +40,6 @@ from ipapython import version
 from ipalib import util
 
 
-def export_ra_pkcs12(dir, dm_password):
-    """
-       dir is the location of the files for the replica we are creating.
-       dm_password is the Directory Manager password
-
-       If this install is using dogtag/RHCS then export the RA certificate.
-    """
-    if certs.ipa_self_signed():
-        return
-
-    (agent_fd, agent_name) = tempfile.mkstemp()
-    os.write(agent_fd, dm_password)
-    os.close(agent_fd)
-
-    try:
-        try:
-            db = certs.CertDB(api.env.realm, host_name=api.env.host)
-
-            if db.has_nickname("ipaCert"):
-                pkcs12_fname = "%s/ra.p12" % dir
-                db.export_pkcs12(pkcs12_fname, agent_name, "ipaCert")
-        except Exception, e:
-            raise e
-    finally:
-        os.remove(agent_name)
-
 def save_config(dir, realm_name, host_name,
                 domain_name, dest_host,
                 subject_base):
@@ -99,33 +73,6 @@ def copy_files(realm_name, dir):
 
 def main():
 
-
-    if options.http_pin:
-        passwd = options.http_pin
-    else:
-        passwd = ""
-
-    passwd_fname = dir + "/http_pin.txt"
-    fd = open(passwd_fname, "w")
-    fd.write("%s\n" % passwd)
-    fd.close()
-
-    if options.http_pkcs12:
-        print "Copying SSL certificate for the Web Server from %s" % options.http_pkcs12
-        try:
-            shutil.copy(options.http_pkcs12, dir + "/httpcert.p12")
-        except IOError, e:
-            print "Copy failed %s" %  e
-            sys.exit(1)
-    else:
-        print "Creating SSL certificate for the Web Server"
-        try:
-            export_certdb(api.env.realm, ds_dir, dir, passwd_fname, "httpcert", replica_fqdn, subject_base)
-        except errors.CertificateOperationError, e:
-            print "%s" % e
-            sys.exit(1)
-        print "Exporting RA certificate"
-        export_ra_pkcs12(dir, dirman_password)
 
     if options.setup_pkinit:
         if options.pkinit_pin:
