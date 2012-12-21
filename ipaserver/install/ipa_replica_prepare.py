@@ -233,6 +233,9 @@ class ReplicaPrepare(admintool.AdminTool):
 
         self.copy_httpd_certificate()
 
+        if options.setup_pkinit:
+            self.copy_pkinit_certificate()
+
     def get_subject_base(self, host_name, dm_password, suffix):
         try:
             conn = ldap2(shared_instance=False, base_dn=suffix)
@@ -310,6 +313,25 @@ class ReplicaPrepare(admintool.AdminTool):
             self.log.info("Exporting RA certificate")
             if not certs.ipa_self_signed():
                 self.export_ra_pkcs12()
+
+    def copy_pkinit_certificate(self):
+        options = self.options
+
+        passwd_fname = os.path.join(self.dir, "pkinit_pin.txt")
+        with open(passwd_fname, "w") as fd:
+            fd.write("%s\n" % (options.pkinit_pin or ''))
+
+        if options.pkinit_pkcs12:
+            self.log.info(
+                "Copying SSL certificate for the KDC from %s",
+                options.pkinit_pkcs12)
+            self.copy_info_file(options.pkinit_pkcs12, "pkinitcert.p12")
+        else:
+            self.log.info("Creating SSL certificate for the KDC")
+            try:
+                self.export_certdb("pkinitcert", passwd_fname, is_kdc=True)
+            except errors.CertificateOperationError, e:
+                raise admintool.ScriptError(str(e))
 
     def copy_info_file(self, source, *dest):
         try:

@@ -74,35 +74,6 @@ def copy_files(realm_name, dir):
 def main():
 
 
-    if options.setup_pkinit:
-        if options.pkinit_pin:
-            passwd = options.pkinit_pin
-        else:
-            passwd = ""
-
-        passwd_fname = dir + "/pkinit_pin.txt"
-        fd = open(passwd_fname, "w")
-        fd.write("%s\n" % passwd)
-        fd.close()
-
-        if options.pkinit_pkcs12:
-            print "Copying SSL certificate for the KDC from %s" % options.pkinit_pkcs12
-            try:
-                shutil.copy(options.pkinit_pkcs12, dir + "/pkinitcert.p12")
-            except IOError, e:
-                print "Copy failed %s" %  e
-                sys.exit(1)
-        else:
-            print "Creating SSL certificate for the KDC"
-            try:
-                export_certdb(api.env.realm, ds_dir, dir,
-                              passwd_fname, "pkinitcert",
-                              replica_fqdn, subject_base,
-                              is_kdc=True)
-            except errors.CertificateOperationError, e:
-                print "%s" % e
-                sys.exit(1)
-
     print "Copying additional files"
     copy_files(api.env.realm, dir)
     print "Finalizing configuration"
