@@ -29,36 +29,18 @@ exit()
 import shutil, pwd
 from ipapython.ipa_log_manager import *
 import traceback
-from ConfigParser import SafeConfigParser
 import krbV
 
 from ipapython import ipautil
 from ipaserver.install import dsinstance
 from ipaserver.install.bindinstance import add_zone, add_fwd_rr, add_ptr_rr
 from ipaserver.install.installutils import resolve_host, BadHostError, HostLookupError
-from ipapython import version
 from ipalib import util
 
 
-def save_config(dir, realm_name, host_name,
-                domain_name, dest_host,
-                subject_base):
-    config = SafeConfigParser()
-    config.add_section("realm")
-    config.set("realm", "realm_name", realm_name)
-    config.set("realm", "master_host_name", host_name)
-    config.set("realm", "domain_name", domain_name)
-    config.set("realm", "destination_host", dest_host)
-    config.set("realm", "subject_base", str(subject_base))
-    config.set("realm", "version", str(version.NUM_VERSION))
-    with open(dir + "/realm_info", "w") as fd:
-        config.write(fd)
 
 
 def main():
-
-    print "Finalizing configuration"
-    save_config(dir, api.env.realm, api.env.host, api.env.domain, replica_fqdn, subject_base)
 
     replicafile = "/var/lib/ipa/replica-info-" + replica_fqdn
     encfile = replicafile+".gpg"

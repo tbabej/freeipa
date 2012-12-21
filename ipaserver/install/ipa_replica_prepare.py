@@ -24,6 +24,7 @@ import sys
 import shutil
 import tempfile
 from optparse import OptionGroup
+from ConfigParser import SafeConfigParser
 
 from ipaserver.install import certs, installutils, bindinstance, dsinstance
 from ipaserver.install.replication import enable_replication_version_checking
@@ -31,6 +32,7 @@ from ipaserver.plugins.ldap2 import ldap2
 from ipaserver.install.bindinstance import dns_container_exists
 from ipapython import ipautil, admintool, dogtag
 from ipapython.dn import DN
+from ipapython import version
 from ipalib import api
 from ipalib import errors
 
@@ -238,6 +240,8 @@ class ReplicaPrepare(admintool.AdminTool):
 
         self.copy_misc_files()
 
+        self.save_config()
+
     def get_subject_base(self, host_name, dm_password, suffix):
         try:
             conn = ldap2(shared_instance=False, base_dn=suffix)
@@ -350,6 +354,21 @@ class ReplicaPrepare(admintool.AdminTool):
         cacert_filename = "/var/kerberos/krb5kdc/cacert.pem"
         if ipautil.file_exists(cacert_filename):
             self.copy_info_file(cacert_filename, "cacert.pem")
+
+    def save_config(self):
+        self.log.info("Finalizing configuration")
+
+        config = SafeConfigParser()
+        config.add_section("realm")
+        config.set("realm", "realm_name", api.env.realm)
+        config.set("realm", "master_host_name", api.env.host)
+        config.set("realm", "domain_name", api.env.domain)
+        config.set("realm", "destination_host", self.replica_fqdn)
+        config.set("realm", "subject_base", str(self.subject_base))
+        config.set("realm", "version", str(version.NUM_VERSION))
+
+        with open(os.path.join(self.dir, "realm_info"), "w") as fd:
+            config.write(fd)
 
     def copy_info_file(self, source, dest):
         """Copy a file into the info directory
