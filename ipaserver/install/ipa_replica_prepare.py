@@ -242,6 +242,8 @@ class ReplicaPrepare(admintool.AdminTool):
 
         self.save_config()
 
+        self.package_replica_file()
+
     def get_subject_base(self, host_name, dm_password, suffix):
         try:
             conn = ldap2(shared_instance=False, base_dn=suffix)
@@ -369,6 +371,20 @@ class ReplicaPrepare(admintool.AdminTool):
 
         with open(os.path.join(self.dir, "realm_info"), "w") as fd:
             config.write(fd)
+
+    def package_replica_file(self):
+        replicafile = "/var/lib/ipa/replica-info-%s" % self.replica_fqdn
+        encfile = "%s.gpg" % replicafile
+
+        self.log.info("Packaging replica information into %s", encfile)
+        ipautil.run(
+            ["/bin/tar", "cf", replicafile, "-C", self.top_dir, "realm_info"])
+        ipautil.encrypt_file(
+            replicafile, encfile, self.dirman_password, self.top_dir)
+
+        os.chmod(encfile, 0600)
+
+        remove_file(replicafile)
 
     def copy_info_file(self, source, dest):
         """Copy a file into the info directory

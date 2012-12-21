@@ -42,16 +42,6 @@ from ipalib import util
 
 def main():
 
-    replicafile = "/var/lib/ipa/replica-info-" + replica_fqdn
-    encfile = replicafile+".gpg"
-
-    print "Packaging replica information into %s" % encfile
-    ipautil.run(["/bin/tar", "cf", replicafile, "-C", top_dir, "realm_info"])
-    ipautil.encrypt_file(replicafile, encfile, dirman_password, top_dir)
-
-    os.chmod(encfile, 0600)
-
-    remove_file(replicafile)
     shutil.rmtree(dir)
 
     if options.ip_address:
