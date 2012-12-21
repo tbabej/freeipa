@@ -29,7 +29,8 @@ from ConfigParser import SafeConfigParser
 from ipaserver.install import certs, installutils, bindinstance, dsinstance
 from ipaserver.install.replication import enable_replication_version_checking
 from ipaserver.plugins.ldap2 import ldap2
-from ipaserver.install.bindinstance import dns_container_exists
+from ipaserver.install.bindinstance import (
+    add_zone, add_fwd_rr, add_ptr_rr, dns_container_exists)
 from ipapython import ipautil, admintool, dogtag
 from ipapython.dn import DN
 from ipapython import version
@@ -246,6 +247,9 @@ class ReplicaPrepare(admintool.AdminTool):
         finally:
             shutil.rmtree(self.top_dir)
 
+        if options.ip_address:
+            self.add_dns_records()
+
     def get_subject_base(self, host_name, dm_password, suffix):
         try:
             conn = ldap2(shared_instance=False, base_dn=suffix)
@@ -387,6 +391,51 @@ class ReplicaPrepare(admintool.AdminTool):
         os.chmod(encfile, 0600)
 
         remove_file(replicafile)
+
+    def add_dns_records(self):
+        options = self.options
+
+        self.log.info("Adding DNS records for %s", self.replica_fqdn)
+        api.Backend.ldap2.connect(
+            bind_dn=DN(('cn', 'Directory Manager')),
+            bind_pw=self.dirman_password)
+
+        name, domain = self.replica_fqdn.split(".", 1)
+
+        ip = options.ip_address
+        ip_address = str(ip)
+
+        if options.reverse_zone:
+            reverse_zone = bindinstance.normalize_zone(options.reverse_zone)
+        else:
+            reverse_zone = bindinstance.find_reverse_zone(ip)
+            if reverse_zone is None and not options.no_reverse:
+                reverse_zone = bindinstance.get_reverse_zone_default(ip)
+
+        try:
+            add_zone(domain)
+        except errors.PublicError, e:
+            raise admintool.ScriptError(
+                "Could not create forward DNS zone for the replica: %s" % e)
+
+        try:
+            add_fwd_rr(domain, name, ip_address)
+        except errors.PublicError, e:
+            raise admintool.ScriptError(
+                "Could not add forward DNS record for the replica: %s" % e)
+
+        if reverse_zone is not None:
+            self.log.info("Using reverse zone %s", reverse_zone)
+            try:
+                add_zone(reverse_zone)
+            except errors.PublicError, e:
+                raise admintool.ScriptError(
+                    "Could not create reverse DNS zone for replica: %s" % e)
+            try:
+                add_ptr_rr(reverse_zone, ip_address, self.replica_fqdn)
+            except errors.PublicError, e:
+                raise admintool.ScriptError(
+                    "Could not add reverse DNS record for the replica: %s" % e)
 
     def copy_info_file(self, source, dest):
         """Copy a file into the info directory
