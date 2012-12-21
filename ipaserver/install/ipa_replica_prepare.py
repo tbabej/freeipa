@@ -20,7 +20,6 @@
 #
 
 import os
-import sys
 import shutil
 import tempfile
 from optparse import OptionGroup
@@ -274,19 +273,12 @@ class ReplicaPrepare(admintool.AdminTool):
                         "found in %s" % options.ca_file)
             self.log.info(
                 "Creating SSL certificate for the Directory Server")
-            try:
-                self.export_certdb("dscert", passwd_fname)
-            except errors.CertificateOperationError, e:
-                raise admintool.ScriptError(str(e))
-                sys.exit(1)
+            self.export_certdb("dscert", passwd_fname)
 
         if not certs.ipa_self_signed():
             self.log.info(
                 "Creating SSL certificate for the dogtag Directory Server")
-            try:
-                self.export_certdb("dogtagcert", passwd_fname)
-            except errors.CertificateOperationError, e:
-                raise admintool.ScriptError(str(e))
+            self.export_certdb("dogtagcert", passwd_fname)
             self.log.info("Saving dogtag Directory Server port")
             port_fname = os.path.join(
                 self.dir, "dogtag_directory_port.txt")
@@ -307,10 +299,8 @@ class ReplicaPrepare(admintool.AdminTool):
             self.copy_info_file(options.http_pkcs12, "httpcert.p12")
         else:
             self.log.info("Creating SSL certificate for the Web Server")
-            try:
-                self.export_certdb("httpcert", passwd_fname)
-            except errors.CertificateOperationError, e:
-                raise admintool.ScriptError(str(e))
+            self.export_certdb("httpcert", passwd_fname)
+
             self.log.info("Exporting RA certificate")
             if not certs.ipa_self_signed():
                 self.export_ra_pkcs12()
@@ -329,10 +319,7 @@ class ReplicaPrepare(admintool.AdminTool):
             self.copy_info_file(options.pkinit_pkcs12, "pkinitcert.p12")
         else:
             self.log.info("Creating SSL certificate for the KDC")
-            try:
-                self.export_certdb("pkinitcert", passwd_fname, is_kdc=True)
-            except errors.CertificateOperationError, e:
-                raise admintool.ScriptError(str(e))
+            self.export_certdb("pkinitcert", passwd_fname, is_kdc=True)
 
     def copy_misc_files(self):
         self.log.info("Copying additional files")
@@ -467,37 +454,40 @@ class ReplicaPrepare(admintool.AdminTool):
                 api.env.realm, nssdir=self.dir, subject_base=subject_base)
             db.create_passwd_file()
             ca_db = certs.CertDB(
-                api.env.realm, host_name=api.env.host, subject_base=subject_base)
+                api.env.realm, host_name=api.env.host,
+                subject_base=subject_base)
             if is_kdc:
                 ca_db.create_kdc_cert("KDC-Cert", hostname, self.dir)
             else:
                 db.create_from_cacert(ca_db.cacert_fname)
                 db.create_server_cert(nickname, hostname, ca_db)
-        except Exception, e:
-            raise e
 
-        pkcs12_fname = os.path.join(self.dir, fname + ".p12")
+            pkcs12_fname = os.path.join(self.dir, fname + ".p12")
 
-        try:
+            try:
+                if is_kdc:
+                    ca_db.export_pem_p12(pkcs12_fname, passwd_fname,
+                        nickname, os.path.join(self.dir, "kdc.pem"))
+                else:
+                    db.export_pkcs12(pkcs12_fname, passwd_fname, nickname)
+            except ipautil.CalledProcessError, e:
+                self.log.info("error exporting Server certificate: %s", e)
+                remove_file(pkcs12_fname)
+                remove_file(passwd_fname)
+
+            self.remove_info_file("cert8.db")
+            self.remove_info_file("key3.db")
+            self.remove_info_file("secmod.db")
+            self.remove_info_file("noise.txt")
+
             if is_kdc:
-                ca_db.export_pem_p12(pkcs12_fname, passwd_fname,
-                    nickname, os.path.join(self.dir, "kdc.pem"))
-            else:
-                db.export_pkcs12(pkcs12_fname, passwd_fname, nickname)
-        except ipautil.CalledProcessError, e:
-            print "error exporting Server certificate: " + str(e)
-            remove_file(pkcs12_fname)
-            remove_file(passwd_fname)
+                self.remove_info_file("kdc.pem")
 
-        self.remove_info_file("cert8.db")
-        self.remove_info_file("key3.db")
-        self.remove_info_file("secmod.db")
-        self.remove_info_file("noise.txt")
-        if is_kdc:
-            self.remove_info_file("kdc.pem")
-        orig_filename = passwd_fname + ".orig"
-        if ipautil.file_exists(orig_filename):
-            remove_file(orig_filename)
+            orig_filename = passwd_fname + ".orig"
+            if ipautil.file_exists(orig_filename):
+                remove_file(orig_filename)
+        except errors.CertificateOperationError, e:
+            raise admintool.ScriptError(str(e))
 
     def export_ra_pkcs12(self):
         agent_fd, agent_name = tempfile.mkstemp()
