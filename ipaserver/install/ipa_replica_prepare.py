@@ -160,11 +160,13 @@ class ReplicaPrepare(admintool.AdminTool):
                 raise admintool.ScriptError(
                     "Directory Manager password required")
 
-        # Try out the password
+        # Try out the password & get the subject base
+        suffix = ipautil.realm_to_suffix(api.env.realm)
         try:
-            conn = ldap2(shared_instance=False)
+            conn = ldap2(shared_instance=False, base_dn=suffix)
             conn.connect(bind_dn=DN(('cn', 'directory manager')),
                          bind_pw=self.dirman_password)
+            dn, entry_attrs = conn.get_ipa_config()
             conn.disconnect()
         except errors.ACIError:
             raise admintool.ScriptError("The password provided is incorrect "
@@ -174,6 +176,11 @@ class ReplicaPrepare(admintool.AdminTool):
                 "Unable to connect to LDAP server %s" % api.env.host)
         except errors.DatabaseError, e:
             raise admintool.ScriptError(e.desc)
+
+        self.subject_base = entry_attrs.get(
+            'ipacertificatesubjectbase', [None])[0]
+        if self.subject_base is not None:
+            self.subject_base = DN(self.subject_base)
 
         # Validate more options using the password
         try:
@@ -224,10 +231,6 @@ class ReplicaPrepare(admintool.AdminTool):
         enable_replication_version_checking(api.env.host, api.env.realm,
             self.dirman_password)
 
-        self.subject_base = self.get_subject_base(
-            api.env.host, self.dirman_password,
-            ipautil.realm_to_suffix(api.env.realm))
-
         self.top_dir = tempfile.mkdtemp("ipa")
         self.dir = os.path.join(self.top_dir, "realm_info")
         os.mkdir(self.dir, 0700)
@@ -249,22 +252,6 @@ class ReplicaPrepare(admintool.AdminTool):
 
         if options.ip_address:
             self.add_dns_records()
-
-    def get_subject_base(self, host_name, dm_password, suffix):
-        try:
-            conn = ldap2(shared_instance=False, base_dn=suffix)
-            conn.connect(
-                bind_dn=DN(('cn', 'directory manager')), bind_pw=dm_password)
-        except errors.ExecutionError, e:
-            self.log.critical(
-                "Could not connect to the Directory Server on %s", host_name)
-            raise e
-        dn, entry_attrs = conn.get_ipa_config()
-        conn.disconnect()
-        subject_base = entry_attrs.get('ipacertificatesubjectbase', [None])[0]
-        if subject_base is not None:
-            subject_base = DN(subject_base)
-        return subject_base
 
     def copy_ds_certificate(self):
         options = self.options
