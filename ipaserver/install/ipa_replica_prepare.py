@@ -364,7 +364,7 @@ class ReplicaPrepare(admintool.AdminTool):
 
         os.chmod(encfile, 0600)
 
-        remove_file(replicafile)
+        installutils.remove_file(replicafile)
 
     def add_dns_records(self):
         options = self.options
@@ -429,7 +429,7 @@ class ReplicaPrepare(admintool.AdminTool):
 
         :param filename: The unneeded file (relative to the info directory)
         """
-        remove_file(os.path.join(self.dir, filename))
+        installutils.remove_file(os.path.join(self.dir, filename))
 
     def export_certdb(self, fname, passwd_fname, is_kdc=False):
         """Export a cert database
@@ -472,8 +472,8 @@ class ReplicaPrepare(admintool.AdminTool):
                     db.export_pkcs12(pkcs12_fname, passwd_fname, nickname)
             except ipautil.CalledProcessError, e:
                 self.log.info("error exporting Server certificate: %s", e)
-                remove_file(pkcs12_fname)
-                remove_file(passwd_fname)
+                installutils.remove_file(pkcs12_fname)
+                installutils.remove_file(passwd_fname)
 
             self.remove_info_file("cert8.db")
             self.remove_info_file("key3.db")
@@ -485,7 +485,7 @@ class ReplicaPrepare(admintool.AdminTool):
 
             orig_filename = passwd_fname + ".orig"
             if ipautil.file_exists(orig_filename):
-                remove_file(orig_filename)
+                installutils.remove_file(orig_filename)
         except errors.CertificateOperationError, e:
             raise admintool.ScriptError(str(e))
 
@@ -502,12 +502,3 @@ class ReplicaPrepare(admintool.AdminTool):
                 db.export_pkcs12(pkcs12_fname, agent_name, "ipaCert")
         finally:
             os.remove(agent_name)
-
-
-def remove_file(fname, ignore_errors=True):
-    """Remove the given file, optionally ignoring any OSError"""
-    try:
-        os.remove(fname)
-    except OSError, e:
-        if not ignore_errors:
-            raise e
