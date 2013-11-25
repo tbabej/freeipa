@@ -1,6 +1,7 @@
-# Authors: Alexander Bokovoy <abokovoy@redhat.com>
+# Authors:
+#   Tomas Babej <tbabej@redhat.com>
 #
-# Copyright (C) 2011  Red Hat
+# Copyright (C) 2013  Red Hat
 # see file 'COPYING' for use and warranty information
 #
 # This program is free software; you can redistribute it and/or modify
@@ -16,3 +17,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+'''
+Base module containing platform-specific functionality.
+'''
