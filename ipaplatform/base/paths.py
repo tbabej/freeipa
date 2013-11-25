@@ -18,30 +18,16 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 '''
-This module contains default implementations for the functions that are expected
-to be implemented by the platforms, and therefore defines the platform API.
+This file contains filesystem paths.
 '''
 
-# authconfig is an entry point to platform-provided AuthConfig implementation
-# (instance of ipapython.platform.base.AuthConfig)
-authconfig = None
-
-# knownservices is an entry point to known platform services
-# (instance of ipapython.platform.base.KnownServices)
-knownservices = None
-
-# service is a class to instantiate ipapython.platform.base.PlatformService
-service = None
+SVC_LIST_FILE = "/var/run/ipa/services.list"
 
 
-# ===== Platform dependant paths =====
+# Firefox paths
 
+FIREFOX_EXEC = "/usr/bin/firefox"
+FIREFOX_INSTALL_DIRS = ["/usr/lib64/firefox", "/usr/lib/firefox"]
 
-# ===== Platform specific services ======
-
-
-# ===== Platform-specific authconfig =====
-
-
-# ===== Platform-specific functions =====
-
+# /firefox/install/dir/FIREFOX_PREFERENCES_REL_PATH
+FIREFOX_PREFERENCES_REL_PATH = "browser/defaults/preferences"

@@ -1,6 +1,6 @@
-# Author: Alexander Bokovoy <abokovoy@redhat.com>
+# Author: Tomas Babej <tbabej@redhat.com>
 #
-# Copyright (C) 2011   Red Hat
+# Copyright (C) 2013   Red Hat
 # see file 'COPYING' for use and warranty information
 #
 # This program is free software; you can redistribute it and/or modify
