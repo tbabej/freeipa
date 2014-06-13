@@ -115,6 +115,7 @@ register = Registry()
 
 PROTECTED_GROUPS = (u'admins', u'trust admins', u'default smb group')
 
+
 @register()
 class group(LDAPObject):
     """
@@ -197,6 +198,7 @@ ipaexternalmember_param = Str('ipaexternalmember*',
             flags=['no_create', 'no_update', 'no_search'],
         )
 
+
 @register()
 class group_add(LDAPCreate):
     __doc__ = _('Create a new group.')
@@ -232,8 +234,6 @@ class group_add(LDAPCreate):
         return dn
 
 
-
-
 @register()
 class group_del(LDAPDelete):
     __doc__ = _('Delete group.')
@@ -265,7 +265,6 @@ class group_del(LDAPDelete):
             pass
 
         return True
-
 
 
 @register()
@@ -339,7 +338,6 @@ class group_mod(LDAPUpdate):
         raise exc
 
 
-
 @register()
 class group_find(LDAPSearch):
     __doc__ = _('Search for groups.')
@@ -409,7 +407,6 @@ class group_find(LDAPSearch):
         return (filter, base_dn, scope)
 
 
-
 @register()
 class group_show(LDAPRetrieve):
     __doc__ = _('Display information about a named group.')
@@ -464,13 +461,16 @@ class group_add_member(LDAPAddMember):
             restore = []
             if 'member' in failed and 'group' in failed['member']:
                 restore = failed['member']['group']
-            failed['member']['group'] = list((id,id) for id in sids)
-            result = add_external_post_callback('member', 'group', 'ipaexternalmember',
-                                                ldap, completed, failed, dn, entry_attrs,
-                                                keys, options, external_callback_normalize=False)
+            failed['member']['group'] = list((id, id) for id in sids)
+            result = add_external_post_callback(ldap, dn, entry_attrs,
+                                                failed=failed,
+                                                completed=completed,
+                                                memberattr='member',
+                                                membertype='group',
+                                                externalattr='ipaexternalmember',
+                                                normalize=False)
             failed['member']['group'] += restore + failed_sids
         return result
-
 
 
 @register()
@@ -518,13 +518,16 @@ class group_remove_member(LDAPRemoveMember):
             restore = []
             if 'member' in failed and 'group' in failed['member']:
                 restore = failed['member']['group']
-            failed['member']['group'] = list((id,id) for id in sids)
-            result = remove_external_post_callback('member', 'group', 'ipaexternalmember',
-                                                ldap, completed, failed, dn, entry_attrs,
-                                                keys, options)
+            failed['member']['group'] = list((id, id) for id in sids)
+            result = remove_external_post_callback(ldap, dn, entry_attrs,
+                                                failed=failed,
+                                                completed=completed,
+                                                memberattr='member',
+                                                membertype='group',
+                                                externalattr='ipaexternalmember',
+                                                )
             failed['member']['group'] += restore + failed_sids
         return result
-
 
 
 @register()

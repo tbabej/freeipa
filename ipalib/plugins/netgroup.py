@@ -75,6 +75,7 @@ output_params = (
         ),
     )
 
+
 @register()
 class netgroup(LDAPObject):
     """
@@ -174,7 +175,6 @@ class netgroup(LDAPObject):
     )
 
 
-
 @register()
 class netgroup_add(LDAPCreate):
     __doc__ = _('Add a new netgroup.')
@@ -211,7 +211,6 @@ class netgroup_add(LDAPCreate):
         return dn
 
 
-
 @register()
 class netgroup_del(LDAPDelete):
     __doc__ = _('Delete a netgroup.')
@@ -239,7 +238,6 @@ class netgroup_mod(LDAPUpdate):
         if is_all(options, 'hostcategory') and 'memberhost' in entry_attrs:
             raise errors.MutuallyExclusiveError(reason=_("host category cannot be set to 'all' while there are allowed hosts"))
         return dn
-
 
 
 @register()
@@ -279,13 +277,11 @@ class netgroup_find(LDAPSearch):
         return (filter, base_dn, scope)
 
 
-
 @register()
 class netgroup_show(LDAPRetrieve):
     __doc__ = _('Display information about a netgroup.')
 
     has_output_params = LDAPRetrieve.has_output_params + output_params
-
 
 
 @register()
@@ -294,14 +290,20 @@ class netgroup_add_member(LDAPAddMember):
 
     member_attributes = ['memberuser', 'memberhost', 'member']
     has_output_params = LDAPAddMember.has_output_params + output_params
+
     def pre_callback(self, ldap, dn, found, not_found, *keys, **options):
         assert isinstance(dn, DN)
         return add_external_pre_callback('host', ldap, dn, keys, options)
 
-    def post_callback(self, ldap, completed, failed, dn, entry_attrs, *keys, **options):
+    def post_callback(self, ldap, completed, failed, dn, entry_attrs,
+                      *keys, **options):
         assert isinstance(dn, DN)
-        return add_external_post_callback('memberhost', 'host', 'externalhost', ldap, completed, failed, dn, entry_attrs, keys, options)
-
+        return add_external_post_callback(ldap, dn, entry_attrs,
+                                          failed=failed,
+                                          completed=completed,
+                                          memberattr='memberhost',
+                                          membertype='host',
+                                          externalattr='externalhost')
 
 
 @register()
@@ -310,7 +312,13 @@ class netgroup_remove_member(LDAPRemoveMember):
 
     member_attributes = ['memberuser', 'memberhost', 'member']
     has_output_params = LDAPRemoveMember.has_output_params + output_params
-    def post_callback(self, ldap, completed, failed, dn, entry_attrs, *keys, **options):
-        assert isinstance(dn, DN)
-        return remove_external_post_callback('memberhost', 'host', 'externalhost', ldap, completed, failed, dn, entry_attrs, keys, options)
 
+    def post_callback(self, ldap, completed, failed, dn, entry_attrs,
+                      *keys, **options):
+        assert isinstance(dn, DN)
+        return remove_external_post_callback(ldap, dn, entry_attrs,
+                                             failed=failed,
+                                             completed=completed,
+                                             memberattr='memberhost',
+                                             membertype='host',
+                                             externalattr='externalhost')

@@ -599,10 +599,12 @@ class sudorule_add_user(LDAPAddMember):
     def post_callback(self, ldap, completed, failed, dn, entry_attrs,
                       *keys, **options):
         assert isinstance(dn, DN)
-        return add_external_post_callback('memberuser', 'user', 'externaluser',
-                                          ldap, completed, failed, dn,
-                                          entry_attrs, keys, options)
-
+        return add_external_post_callback(ldap, dn, entry_attrs,
+                                          failed=failed,
+                                          completed=completed,
+                                          memberattr='memberuser',
+                                          membertype='user',
+                                          externalattr='externaluser')
 
 
 @register()
@@ -615,11 +617,12 @@ class sudorule_remove_user(LDAPRemoveMember):
     def post_callback(self, ldap, completed, failed, dn, entry_attrs,
                       *keys, **options):
         assert isinstance(dn, DN)
-        return remove_external_post_callback('memberuser', 'user',
-                                             'externaluser', ldap, completed,
-                                             failed, dn, entry_attrs, keys,
-                                             options)
-
+        return remove_external_post_callback(ldap, dn, entry_attrs,
+                                             failed=failed,
+                                             completed=completed,
+                                             memberattr='memberuser',
+                                             membertype='user',
+                                             externalattr='externaluser')
 
 
 @register()
@@ -672,10 +675,12 @@ class sudorule_add_host(LDAPAddMember):
                     pass
                 completed = completed + num_added
 
-        return add_external_post_callback('memberhost', 'host', 'externalhost',
-                                          ldap, completed, failed, dn,
-                                          entry_attrs, keys, options)
-
+        return add_external_post_callback(ldap, dn, entry_attrs,
+                                          failed=failed,
+                                          completed=completed,
+                                          memberattr='memberhost',
+                                          membertype='host',
+                                          externalattr='externalhost')
 
 
 @register()
@@ -690,6 +695,7 @@ class sudorule_remove_host(LDAPRemoveMember):
             option.alwaysask = False
             yield option
         yield hostmask_membership_param
+
     def post_callback(self, ldap, completed, failed, dn, entry_attrs,
                       *keys, **options):
         assert isinstance(dn, DN)
@@ -715,10 +721,12 @@ class sudorule_remove_host(LDAPRemoveMember):
                     pass
                 completed = completed + num_added
 
-        return remove_external_post_callback('memberhost', 'host',
-                                             'externalhost', ldap, completed,
-                                             failed, dn, entry_attrs, keys,
-                                             options)
+        return remove_external_post_callback(ldap, dn, entry_attrs,
+                                             failed=failed,
+                                             completed=completed,
+                                             memberattr='memberhost',
+                                             membertype='host',
+                                             externalattr='externalhost')
 
 
 @register()
@@ -777,17 +785,23 @@ class sudorule_add_runasuser(LDAPAddMember):
         # so that the entries added by the framework are not counted twice
         # (once in each call of add_external_post_callback)
 
-        (completed_ex_users, dn) = add_external_post_callback(
-                                       'ipasudorunas', 'user',
-                                       'ipasudorunasextuser',
-                                        ldap, 0, failed, dn, entry_attrs,
-                                        keys, options)
+        (completed_ex_users, dn) = add_external_post_callback(ldap, dn,
+                                        entry_attrs,
+                                        failed=failed,
+                                        completed=0,
+                                        memberattr='ipasudorunas',
+                                        membertype='user',
+                                        externalattr='ipasudorunasextuser',
+                                        )
 
-        (completed_ex_groups, dn) = add_external_post_callback(
-                                       'ipasudorunas', 'group',
-                                       'ipasudorunasextusergroup',
-                                        ldap, 0, failed, dn, entry_attrs,
-                                        keys, options)
+        (completed_ex_groups, dn) = add_external_post_callback(ldap, dn,
+                                        entry_attrs=entry_attrs,
+                                        failed=failed,
+                                        completed=0,
+                                        memberattr='ipasudorunas',
+                                        membertype='user',
+                                        externalattr='ipasudorunasextuser',
+                                        )
 
         return (completed + completed_ex_users + completed_ex_groups, dn)
 
@@ -809,17 +823,23 @@ class sudorule_remove_runasuser(LDAPRemoveMember):
         # so that the entries added by the framework are not counted twice
         # (once in each call of remove_external_post_callback)
 
-        (completed_ex_users, dn) = remove_external_post_callback(
-                                       'ipasudorunas', 'user',
-                                       'ipasudorunasextuser',
-                                        ldap, 0, failed, dn, entry_attrs,
-                                        keys, options)
+        (completed_ex_users, dn) = remove_external_post_callback(ldap, dn,
+                                        entry_attrs=entry_attrs,
+                                        failed=failed,
+                                        completed=0,
+                                        memberattr='ipasudorunas',
+                                        membertype='user',
+                                        externalattr='ipasudorunasextuser',
+                                        )
 
-        (completed_ex_groups, dn) = remove_external_post_callback(
-                                       'ipasudorunas', 'group',
-                                       'ipasudorunasextusergroup',
-                                        ldap, 0, failed, dn, entry_attrs,
-                                        keys, options)
+        (completed_ex_groups, dn) = remove_external_post_callback(ldap, dn,
+                                        entry_attrs=entry_attrs,
+                                        failed=failed,
+                                        completed=0,
+                                        memberattr='ipasudorunas',
+                                        membertype='group',
+                                        externalattr='ipasudorunasextusergroup',
+                                        )
 
         return (completed + completed_ex_users + completed_ex_groups, dn)
 
@@ -863,11 +883,13 @@ class sudorule_add_runasgroup(LDAPAddMember):
     def post_callback(self, ldap, completed, failed, dn, entry_attrs,
                       *keys, **options):
         assert isinstance(dn, DN)
-        return add_external_post_callback('ipasudorunasgroup', 'group',
-                                          'ipasudorunasextgroup', ldap,
-                                          completed, failed, dn, entry_attrs,
-                                          keys, options)
-
+        return add_external_post_callback(ldap, dn, entry_attrs,
+                                          failed=failed,
+                                          completed=completed,
+                                          memberattr='ipasudorunasgroup',
+                                          membertype='group',
+                                          externalattr='ipasudorunasextgroup',
+                                          )
 
 
 @register()
@@ -880,11 +902,13 @@ class sudorule_remove_runasgroup(LDAPRemoveMember):
     def post_callback(self, ldap, completed, failed, dn, entry_attrs,
                       *keys, **options):
         assert isinstance(dn, DN)
-        return remove_external_post_callback('ipasudorunasgroup', 'group',
-                                             'ipasudorunasextgroup', ldap,
-                                             completed, failed, dn,
-                                             entry_attrs, keys, options)
-
+        return remove_external_post_callback(ldap, dn, entry_attrs,
+                                          failed=failed,
+                                          completed=completed,
+                                          memberattr='ipasudorunasgroup',
+                                          membertype='group',
+                                          externalattr='ipasudorunasextgroup',
+                                          )
 
 
 @register()
