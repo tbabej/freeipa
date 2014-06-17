@@ -262,6 +262,7 @@ class DsInstance(service.Service):
         self.step("creating directory server user", create_ds_user)
         self.step("creating directory server instance", self.__create_instance)
         self.step("adding default schema", self.__add_default_schemas)
+        self.step("detecting dynamic plugin support", self.__detect_dynamic_plugin_support)
         self.step("enabling memberof plugin", self.__add_memberof_module)
         self.step("enabling winsync plugin", self.__add_winsync_module)
         self.step("configuring replication version plugin", self.__config_version_module)
@@ -387,6 +388,22 @@ class DsInstance(service.Service):
 
         self.start_creation(runtime=60)
 
+    def __detect_dynamic_plugin_support(self):
+        if not self.admin_conn:
+            self.ldap_connect()
+
+        # Check that dynamic plugins are enabled
+        result = self.admin_conn.conn.search_s(
+                      DN("cn=config"),
+                      ldap.SCOPE_BASE,
+                      attrlist=["nsslapd-dynamic-plugins"])[0]
+
+        enabled = result.get("nsslapd-dynamic-plugins") == ['on']
+
+        # If the dynamic plugins are enabled, we need to restart to apply the
+        # new schema
+        if enabled:
+            self.__restart_instance()
 
     def __setup_replica(self):
         replication.enable_replication_version_checking(self.fqdn,
@@ -503,13 +520,15 @@ class DsInstance(service.Service):
         try:
             super(DsInstance, self).restart(instance)
             if not is_ds_running(instance):
-                root_logger.critical("Failed to restart the directory server. See the installation log for details.")
+                root_logger.critical("Failed to restart the directory server. "
+                                     "See the installation log for details.")
                 sys.exit(1)
         except SystemExit, e:
             raise e
         except Exception, e:
             # TODO: roll back here?
-            root_logger.critical("Failed to restart the directory server (%s). See the installation log for details." % e)
+            root_logger.critical("Failed to restart the directory server (%s). "
+                                 "See the installation log for details." % e)
 
     def __restart_instance(self):
         self.restart(self.serverid)
