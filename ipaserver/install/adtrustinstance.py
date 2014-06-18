@@ -564,7 +564,7 @@ class ADTRUSTInstance(service.Service):
             ("_kerberos._tcp", [self.srv_rec(host_in_rr, 88, priority)], 88),
             ("_kerberos._udp", [self.srv_rec(host_in_rr, 88, priority)], 88),
         )
-        win_srv_suffix = (".Default-First-Site-Name._sites.dc._msdcs",
+        win_srv_suffix = (".default-first-site-name._sites.dc._msdcs",
                           ".dc._msdcs")
 
         err_msg = None
