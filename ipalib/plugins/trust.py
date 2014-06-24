@@ -309,6 +309,7 @@ class trust(LDAPObject):
     object_name = _('trust')
     object_name_plural = _('trusts')
     object_class = ['ipaNTTrustedDomain']
+    permission_filter_objectclasses = ['ipanttrusteddomain']
     default_attributes = ['cn', 'ipantflatname', 'ipanttrusteddomainsid',
         'ipanttrusttype', 'ipanttrustattributes', 'ipanttrustdirection',
         'ipanttrustpartner', 'ipanttrustforesttrustinfo',
@@ -318,8 +319,6 @@ class trust(LDAPObject):
     managed_permissions = {
         'System: Read Trust Information': {
             # Allow reading of attributes needed for SSSD subdomains support
-            'non_object': True,
-            'ipapermlocation': DN(container_dn, api.env.basedn),
             'replaces_global_anonymous_aci': True,
             'ipapermbindruletype': 'all',
             'ipapermright': {'read', 'search', 'compare'},
@@ -329,6 +328,15 @@ class trust(LDAPObject):
                 'ipanttrusteddomainsid', 'ipanttrustpartner',
                 'ipantsidblacklistincoming', 'ipantsidblacklistoutgoing'
             },
+        },
+
+        'System: Read system trust accounts': {
+            'replaces_global_anonymous_aci': True,
+            'ipapermright': {'read', 'search', 'compare'},
+            'ipapermdefaultattr': {
+                'uidnumber', 'gidnumber'
+            },
+            'default_privileges': {'ADTrust Agents'},
         },
     }
 
