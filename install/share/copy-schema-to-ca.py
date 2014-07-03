@@ -34,6 +34,7 @@ SCHEMA_FILENAMES = (
     "65ipacertstore.ldif",
     "65ipasudo.ldif",
     "70ipaotp.ldif",
+    "71idviews.ldif",
     "05rfc2247.ldif",
 )
 

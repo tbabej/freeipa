@@ -20,7 +20,7 @@
 
 from ipalib.plugable import Registry
 from ipalib.plugins.baseldap import *
-from ipalib import api, Int, _, ngettext, errors
+from ipalib import api, _, ngettext, errors
 from ipalib.plugins.netgroup import NETGROUP_PATTERN, NETGROUP_PATTERN_ERRMSG
 from ipapython.dn import DN
 
@@ -53,6 +53,14 @@ EXAMPLES:
  Delete a hostgroup:
    ipa hostgroup-del baltimore
 """)
+
+
+def get_complete_hostgroup_member_list(hostgroup):
+    result = api.Command['hostgroup_show'](hostgroup)['result']
+    direct = result.get('member_host', [])
+    indirect = result.get('memberindirect_host', [])
+    return list(direct + indirect)
+
 
 register = Registry()
 
