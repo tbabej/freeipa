@@ -12,6 +12,7 @@ default: ipaUniqueID: autogenerate
 
 dn: cn=adtrust agents,cn=sysaccounts,cn=etc,$SUFFIX
 default: objectClass: GroupOfNames
+default: objectClass: nestedgroup
 default: objectClass: top
 default: cn: adtrust agents
 
