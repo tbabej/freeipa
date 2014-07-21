@@ -94,6 +94,7 @@ void ipa_winsync_set_plugin_identity(void * identity);
 void * ipa_winsync_get_plugin_identity(void);
 
 int ipa_winsync_config( Slapi_Entry *config_e );
+int ipa_winsync_unconfig( Slapi_Entry *config_e );
 IPA_WinSync_Config *ipa_winsync_get_config( void );
 
 /*

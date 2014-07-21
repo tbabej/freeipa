@@ -156,6 +156,28 @@ ipa_winsync_config(Slapi_Entry *config_e)
     return returncode;
 }
 
+int
+ipa_winsync_unconfig(Slapi_Entry *config_e)
+{
+    /* unregister all the callbacks */
+    const char *config_dn = slapi_entry_get_dn_const(config_e);
+    slapi_config_remove_callback(SLAPI_OPERATION_MODIFY, DSE_FLAG_PREOP, config_dn, LDAP_SCOPE_BASE,
+                                 IPA_WINSYNC_CONFIG_FILTER, ipa_winsync_validate_config);
+    slapi_config_remove_callback(SLAPI_OPERATION_MODIFY, DSE_FLAG_POSTOP, config_dn, LDAP_SCOPE_BASE,
+                                 IPA_WINSYNC_CONFIG_FILTER, ipa_winsync_apply_config);
+    slapi_config_remove_callback(SLAPI_OPERATION_MODRDN, DSE_FLAG_PREOP, config_dn, LDAP_SCOPE_BASE,
+                                 IPA_WINSYNC_CONFIG_FILTER, dont_allow_that);
+    slapi_config_remove_callback(SLAPI_OPERATION_DELETE, DSE_FLAG_PREOP, config_dn, LDAP_SCOPE_BASE,
+                                 IPA_WINSYNC_CONFIG_FILTER, dont_allow_that);
+    slapi_config_remove_callback(SLAPI_OPERATION_SEARCH, DSE_FLAG_PREOP, config_dn, LDAP_SCOPE_BASE,
+                                 IPA_WINSYNC_CONFIG_FILTER, ipa_winsync_search);
+
+    /* set the global static flag inited to false */
+    inited = 0;
+
+    return 0;
+}
+
 static int
 parse_acct_disable(const char *theval)
 {

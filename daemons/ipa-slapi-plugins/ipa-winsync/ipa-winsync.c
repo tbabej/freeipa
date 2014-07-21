@@ -659,12 +659,21 @@ ipa_winsync_plugin_start(Slapi_PBlock *pb)
 static int
 ipa_winsync_plugin_close(Slapi_PBlock *pb)
 {
+    Slapi_Entry *config_e = NULL; /* entry containing plugin config */
+
     LOG("--> ipa_winsync_plugin_close -- begin\n");
 
-	slapi_apib_unregister(WINSYNC_v3_0_GUID);
+    slapi_apib_unregister(WINSYNC_v3_0_GUID);
+
+    if ( slapi_pblock_get( pb, SLAPI_ADD_ENTRY, &config_e ) != 0 ) {
+        LOG_FATAL("missing config entry\n" );
+        return( -1 );
+    }
+
+    ipa_winsync_unconfig(config_e);
 
     LOG("<-- ipa_winsync_plugin_close -- end\n");
-	return 0;
+    return 0;
 }
 
 /* this is the slapi plugin init function,
