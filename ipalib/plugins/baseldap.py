@@ -2100,19 +2100,15 @@ class LDAPAddReverseMember(LDAPModReverseMember):
         for attr in options.get(self.reverse_attr) or []:
             try:
                 options = {'%s' % self.member_attr: keys[-1]}
-                try:
-                    result = self._exc_wrapper(keys, options, self.api.Command[self.member_command])(attr, **options)
-                    if result['completed'] == 1:
-                        completed = completed + 1
-                    else:
-                        failed['member'][self.reverse_attr].append((attr, result['failed']['member'][self.member_attr][0][1]))
-                except errors.NotFound, e:
-                    msg = str(e)
-                    (attr, msg) = msg.split(':', 1)
-                    failed['member'][self.reverse_attr].append((attr, unicode(msg.strip())))
-
-            except errors.PublicError, e:
-                failed['member'][self.reverse_attr].append((attr, unicode(msg)))
+                result = self._exc_wrapper(keys, options, self.api.Command[self.member_command])(attr, **options)
+                if result['completed'] == 1:
+                    completed = completed + 1
+                else:
+                    failed['member'][self.reverse_attr].append((attr, result['failed']['member'][self.member_attr][0][1]))
+            except (errors.PublicError, errors.NotFound) as e:
+                msg = str(e)
+                (attr, msg) = msg.split(':', 1)
+                failed['member'][self.reverse_attr].append((attr, unicode(msg.strip())))
 
         # Update the member data.
         entry_attrs = ldap.get_entry(dn, ['*'])
@@ -2201,19 +2197,15 @@ class LDAPRemoveReverseMember(LDAPModReverseMember):
         for attr in options.get(self.reverse_attr) or []:
             try:
                 options = {'%s' % self.member_attr: keys[-1]}
-                try:
-                    result = self._exc_wrapper(keys, options, self.api.Command[self.member_command])(attr, **options)
-                    if result['completed'] == 1:
-                        completed = completed + 1
-                    else:
-                        failed['member'][self.reverse_attr].append((attr, result['failed']['member'][self.member_attr][0][1]))
-                except errors.NotFound, e:
-                    msg = str(e)
-                    (attr, msg) = msg.split(':', 1)
-                    failed['member'][self.reverse_attr].append((attr, unicode(msg.strip())))
-
-            except errors.PublicError, e:
-                failed['member'][self.reverse_attr].append((attr, unicode(msg)))
+                result = self._exc_wrapper(keys, options, self.api.Command[self.member_command])(attr, **options)
+                if result['completed'] == 1:
+                    completed = completed + 1
+                else:
+                    failed['member'][self.reverse_attr].append((attr, result['failed']['member'][self.member_attr][0][1]))
+            except (errors.PublicError, errors.NotFound) as e:
+                msg = str(e)
+                (attr, msg) = msg.split(':', 1)
+                failed['member'][self.reverse_attr].append((attr, unicode(msg.strip())))
 
         # Update the member data.
         entry_attrs = ldap.get_entry(dn, ['*'])
