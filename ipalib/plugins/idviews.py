@@ -97,6 +97,15 @@ class idview_del(LDAPDelete):
     __doc__ = _('Delete an ID View.')
     msg_summary = _('Deleted ID View "%(value)s"')
 
+    def pre_callback(self, ldap, dn, *keys, **options):
+        if "Default Trust View" in keys:
+            raise errors.ValidationError(
+                name=_('Protected ID View'),
+                error=_('Default Trust View cannot be deleted')
+                )
+
+        return dn
+
 
 @register()
 class idview_mod(LDAPUpdate):
@@ -523,6 +532,16 @@ class baseidoverride(LDAPObject):
                 )
                 entry_attrs.single_value['ipaanchoruuid'] = object_name
 
+    def prohibit_ipa_users_in_default_view(self, dn, entry_attrs):
+        # Check if parent object is Default Trust View, if so, prohibit
+        # adding overrides for IPA objects
+
+        if dn[1].value == 'Default Trust View':
+            if dn[0].value.startswith(IPA_ANCHOR_PREFIX):
+                raise errors.ValidationError(
+                    name=_('ID View'),
+                    error=_('Default Trust View cannot contain IPA users')
+                    )
 
 class baseidoverride_add(LDAPCreate):
     __doc__ = _('Add a new ID override.')
@@ -530,6 +549,7 @@ class baseidoverride_add(LDAPCreate):
 
     def pre_callback(self, ldap, dn, entry_attrs, attrs_list, *keys, **options):
         self.obj.set_anchoruuid_from_dn(dn, entry_attrs)
+        self.obj.prohibit_ipa_users_in_default_view(dn, entry_attrs)
         return dn
 
     def post_callback(self, ldap, dn, entry_attrs, *keys, **options):
@@ -545,6 +565,16 @@ class baseidoverride_del(LDAPDelete):
 class baseidoverride_mod(LDAPUpdate):
     __doc__ = _('Modify an ID override.')
     msg_summary = _('Modified an ID override "%(value)s"')
+
+    def pre_callback(self, ldap, dn, entry_attrs, attrs_list, *keys, **options):
+        if 'rename' in options:
+            raise errors.ValidationError(
+                name=_('ID override'),
+                error=_('ID overrides cannot be renamed')
+                )
+
+        self.obj.prohibit_ipa_users_in_default_view(dn, entry_attrs)
+        return dn
 
     def post_callback(self, ldap, dn, entry_attrs, *keys, **options):
         self.obj.convert_anchor_to_human_readable_form(entry_attrs, **options)
