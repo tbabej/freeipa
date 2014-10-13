@@ -486,22 +486,32 @@ class idrange_add(LDAPCreate):
             if not is_set('iparangetype'):
                 entry_attrs['iparangetype'] = u'ipa-ad-trust'
 
-            if entry_attrs['iparangetype'] not in (u'ipa-ad-trust',
-                                                   u'ipa-ad-trust-posix'):
+            if entry_attrs['iparangetype'] == u'ipa-ad-trust':
+                if not is_set('ipabaserid'):
+                    raise errors.ValidationError(
+                        name='ID Range setup',
+                        error=_('Options dom-sid/dom-name and rid-base must '
+                                'be used together')
+                    )
+            elif entry_attrs['iparangetype'] == u'ipa-ad-trust-posix':
+                if is_set('ipabaserid') and entry_attrs['ipabaserid'] != 0:
+                    raise errors.ValidationError(
+                        name='ID Range setup',
+                        error=_('Option rid-base must not be used when IPA '
+                                'range type is ipa-ad-trust-posix')
+                    )
+                else:
+                    entry_attrs['ipabaserid'] = 0
+            else:
                 raise errors.ValidationError(name='ID Range setup',
                     error=_('IPA Range type must be one of ipa-ad-trust '
                             'or ipa-ad-trust-posix when SID of the trusted '
-                            'domain is specified.'))
+                            'domain is specified'))
 
             if is_set('ipasecondarybaserid'):
                 raise errors.ValidationError(name='ID Range setup',
                     error=_('Options dom-sid/dom-name and secondary-rid-base '
                             'cannot be used together'))
-
-            if not is_set('ipabaserid'):
-                raise errors.ValidationError(name='ID Range setup',
-                    error=_('Options dom-sid/dom-name and rid-base must '
-                            'be used together'))
 
             # Validate SID as the one of trusted domains
             self.obj.validate_trusted_domain_sid(
@@ -699,11 +709,23 @@ class idrange_mod(LDAPUpdate):
                 raise errors.ValidationError(name='ID Range setup',
                     error=_('Options dom-sid and secondary-rid-base cannot '
                             'be used together'))
-
-            if not in_updated_attrs('ipabaserid'):
-                raise errors.ValidationError(name='ID Range setup',
-                    error=_('Options dom-sid and rid-base must '
-                            'be used together'))
+            range_type = old_attrs['iparangetype'][0]
+            if range_type == u'ipa-ad-trust':
+                if not in_updated_attrs('ipabaserid'):
+                    raise errors.ValidationError(
+                        name='ID Range setup',
+                        error=_('Options dom-sid and rid-base must '
+                                'be used together'))
+            elif (range_type == u'ipa-ad-trust-posix' and
+                  'ipabaserid' in entry_attrs):
+                if entry_attrs['ipabaserid'] is None:
+                    entry_attrs['ipabaserid'] = 0
+                elif entry_attrs['ipabaserid'] != 0:
+                    raise errors.ValidationError(
+                        name='ID Range setup',
+                        error=_('Option rid-base must not be used when IPA '
+                                'range type is ipa-ad-trust-posix')
+                    )
 
             if is_set('ipanttrusteddomainsid'):
                 # Validate SID as the one of trusted domains
