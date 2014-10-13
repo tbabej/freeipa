@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from ipaserver.install.plugins import MIDDLE
+from ipaserver.install.plugins import MIDDLE, LAST
 from ipaserver.install.plugins.baseupdate import PostUpdate
 from ipalib import api, errors
 from ipapython.dn import DN
@@ -111,4 +111,85 @@ class update_idrange_type(PostUpdate):
 
         return (False, False, [])
 
+
+class update_idrange_baserid(PostUpdate):
+    """
+    Update ipa-ad-trust-posix ranges' base RID to 0. This applies to AD trust
+    posix ranges prior to IPA 4.1.
+    """
+
+    order = LAST
+
+    def execute(self, **options):
+        ldap = self.obj.backend
+
+        base_dn = DN(api.env.container_ranges, api.env.basedn)
+        search_filter = ("(&(objectClass=ipaTrustedADDomainRange)"
+                         "(ipaRangeType=ipa-ad-trust-posix)"
+                         "(!(ipaBaseRID=0)))")
+        root_logger.debug(
+            "update_idrange_baserid: search for ipa-ad-trust-posix ID ranges "
+            "with ipaBaseRID != 0"
+        )
+
+        while True:
+            # Run the search in loop to avoid issues when LDAP limits are hit
+            # during update
+
+            try:
+                (entries, truncated) = ldap.find_entries(
+                    search_filter,
+                    ['ipabaserid'], base_dn, time_limit=0, size_limit=0)
+
+            except errors.NotFound:
+                root_logger.debug("update_idrange_baserid: Trusted AD domain "
+                                  "range with posix attributes found")
+                return (False, False, [])
+
+            except errors.ExecutionError, e:
+                root_logger.error("update_idrange_baserid: cannot retrieve "
+                                  "list of affected ranges: %s", e)
+                return (False, False, [])
+
+            if not entries:
+                # No entry was returned, rather break than continue cycling
+                root_logger.debug("update_idrange_baserid: no ID range was "
+                                  "returned")
+                return (False, False, [])
+
+            root_logger.debug("update_idrange_baserid: found %d "
+                              "idranges possible to update, truncated: %s",
+                              len(entries), truncated)
+
+            error = False
+
+            # Set the range type
+            for entry in entries:
+                entry['ipabaserid'] = 0
+                try:
+                    root_logger.info("Updating existing idrange: %s" % (entry.dn))
+                    ldap.update_entry(entry)
+                    root_logger.info("Done")
+                except (errors.EmptyModlist, errors.NotFound):
+                    pass
+                except errors.ExecutionError, e:
+                    root_logger.debug("update_idrange_type: cannot "
+                                      "update idrange: %s", e)
+                    error = True
+
+            if error:
+                # Exit loop to avoid infinite cycles
+                root_logger.error("update_idrange_baserid: error(s) "
+                                  "detected during idrange baserid update")
+                return (False, False, [])
+
+            elif not truncated:
+                # All affected entries updated, exit the loop
+                root_logger.debug("update_idrange_baserid: all affected "
+                                  "idranges updated")
+                return (False, False, [])
+
+        return (False, False, [])
+
 api.register(update_idrange_type)
+api.register(update_idrange_baserid)
