@@ -223,6 +223,12 @@
                     "field.validator",
                     "*_validator"
                 ]
+            },
+            {
+                "name": "Combobox search providers",
+                "classes": [
+                    "*CBSearchProvider"
+                ]
             }
         ]
     },

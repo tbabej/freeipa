@@ -206,7 +206,9 @@ exp.entity = IPA.entity = function(spec) {
     that.dialog_build_overrides = {
         $pre_ops: [
             function (spec, context) {
-                spec.entity = context.entity;
+                if (context.entity) {
+                    spec.entity = context.entity;
+                }
                 return spec;
             }
         ],

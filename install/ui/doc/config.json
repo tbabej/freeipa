@@ -4,7 +4,7 @@
     "--guides": "guides.json",
     "--css": ["doc.css"],
     "--external": ["jQuery", "Store", "QueryResult", "Stateful", "Evented",
-                   "XMLHttpRequest", "Promise"],
+                   "XMLHttpRequest", "Promise", "Deferred"],
     "--warnings": ["-link", "-nodoc"],
     "--": [
         "../src/freeipa/"

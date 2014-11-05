@@ -390,13 +390,18 @@ IPA.host_fqdn_widget = function(spec) {
             required: true
         },
         {
-            $type: 'dnszone_select',
+            $type: 'entity_select',
             name: 'dnszone',
             label: '@mo:dnszone.label_singular',
             editable: true,
             empty_option: false,
             required: true,
-            searchable: true
+            searchable: true,
+            other_entity: 'dnszone',
+            other_field: 'idnsname',
+            filter_options: {
+                forward_only: true
+            }
         }
     ];
 
@@ -576,28 +581,6 @@ IPA.host_deleter_dialog = function(spec) {
         }
 
         return batch;
-    };
-
-    return that;
-};
-
-IPA.dnszone_select_widget = function(spec) {
-
-    spec = spec || {};
-    spec.other_entity = 'dnszone';
-    spec.other_field = 'idnsname';
-
-    var that = IPA.entity_select_widget(spec);
-
-    that.create_search_command = function(filter) {
-        return rpc.command({
-            entity: that.other_entity.name,
-            method: 'find',
-            args: [filter],
-            options: {
-                forward_only: true
-            }
-        });
     };
 
     return that;
@@ -929,8 +912,6 @@ exp.register = function() {
     e.register({type: 'host', spec: exp.entity_spec});
     f.register('host_fqdn', IPA.host_fqdn_field);
     w.register('host_fqdn', IPA.host_fqdn_widget);
-    f.register('dnszone_select', IPA.field);
-    w.register('dnszone_select', IPA.dnszone_select_widget);
     f.register('host_dnsrecord_entity_link', IPA.field);
     w.register('host_dnsrecord_entity_link', IPA.host_dnsrecord_entity_link_widget);
     f.register('force_host_add_checkbox', IPA.checkbox_field);

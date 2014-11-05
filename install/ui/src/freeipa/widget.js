@@ -23,14 +23,18 @@
 
 
 define(['dojo/_base/array',
+       'dojo/_base/declare',
        'dojo/_base/lang',
        'dojo/dom-construct',
+       'dojo/Deferred',
        'dojo/Evented',
        'dojo/has',
        'dojo/keys',
        'dojo/on',
+       'dojo/promise/all',
        'dojo/string',
        'dojo/topic',
+       'dojo/when',
        './builder',
        './config',
        './datetime',
@@ -45,7 +49,7 @@ define(['dojo/_base/array',
        './util',
        'exports'
        ],
-       function(array, lang, construct, Evented, has, keys, on, string, topic, builder, config,
+       function(array, declare, lang, construct, Deferred, Evented, has, keys, on, all, string, topic, when, builder, config,
                 datetime, entity_mod, IPA, $, navigation, phases, reg, rpc, text, util, exp) {
 
 /**
@@ -3558,6 +3562,187 @@ IPA.attribute_table_widget = function(spec) {
 };
 
 /**
+ * Combobox search provider
+ *
+ * Events: 'success', 'error'
+ *
+ * @class widget.CBSearchProvider
+ */
+exp.CBSearchProvider = declare([Evented], {
+
+    /**
+     * Options
+     * @type {Array}
+     */
+    options: [],
+
+    /**
+     * Execute search
+     * @param  {string} filter Filter text
+     * @return {Deferred}
+     */
+    search: function(filter) {
+        var def = this._search(filter);
+        var that = this;
+        when(def, function(result){
+            that.emit('success', { source: that, result: result });
+        }, function(err){
+            that.emit('error', { source: that, error: err });
+        });
+        return def;
+    },
+
+    /**
+     * Actual search
+     * @protected
+     * @param  {string} filter
+     * @return {Deferred}
+     */
+    _search: function(filter) {
+        return this.options;
+    },
+
+    constructor: function(spec) {
+        if (spec.options) this.options = spec.options;
+    }
+});
+
+/**
+ * Entity Combobox search provider
+ *
+ * @class widget.EntityCBSearchProvider
+ * @extends widget.CBSearchProvider
+ */
+exp.EntityCBSearchProvider = declare([exp.CBSearchProvider], {
+
+    /**
+     * Entity
+     * @property {IPA.entity|string}
+     */
+    entity: null,
+
+    /**
+     * Entity param to select as value
+     * @property {string}
+     */
+    param: null,
+
+    /**
+     * Filter for RPC search
+     * @property {Object}
+     */
+    filter_options: {},
+
+    /**
+     * @inheritDoc
+     * @protected
+     */
+    _search: function(filter) {
+        var def = new Deferred();
+        var command = this.create_search_command(filter);
+        command.on_success = lang.hitch(this, function(data, text_status, xhr) {
+            var options = this.on_success(data, text_status, xhr);
+            def.resolve(options);
+        });
+        command.on_error = lang.hitch(this, function(xhr, text_status, error_thrown) {
+            var options = this.on_error(xhr, text_status, error_thrown);
+            def.reject(error_thrown);
+        });
+        command.execute();
+        return def;
+    },
+
+    /** @protected */
+    create_search_command: function(filter) {
+        return rpc.command({
+            entity: this.entity.name,
+            method: 'find',
+            args: [filter],
+            options: this.filter_options
+        });
+    },
+
+    /** @protected */
+    on_success: function(data, text_status, xhr) {
+
+        var adapter = builder.build('adapter', 'adapter', { context: this });
+        var options = [];
+        var entries = data.result.result;
+
+        for (var i=0; i<data.result.count; i++) {
+            var entry = entries[i];
+            var values = adapter.load(entry);
+            var value = values[0];
+            options.push(value);
+        }
+
+        return options;
+    },
+
+    /** @protected */
+    on_error: function(xhr, text_status, error_thrown) {
+    },
+
+    constructor: function(spec) {
+        this.entity = reg.entity.get(spec.entity);
+        this.param = spec.param || (this.entity ? this.entity.metadata.primary_key : null);
+        this.filter_options = spec.filter_options;
+    }
+});
+
+
+/**
+ * Uses multiple search providers and combines their result
+ * @class widget.JointCBSearchProvider
+ * @extends widget.CBSearchProvider
+ */
+exp.JointCBSearchProvider = declare([exp.CBSearchProvider], {
+
+    /**
+     * @property {widget.CBSearchProvider[]}
+     */
+    providers: [],
+
+    /**
+     * @inheritDoc
+     * @protected
+     */
+    _search: function(filter) {
+
+        var def = new Deferred();
+        var defs = [];
+        for (var i=0, l=this.providers.length;  i<l; i++) {
+            defs.push(this.providers[i].search(filter));
+        }
+        all(defs).then(function(results) {
+            var res = [];
+            for (var j=0, k=results.length; j<k; j++) {
+                res.push.apply(res, results[j]);
+            }
+            def.resolve(res);
+        } , function(errors) {
+            def.reject(errors);
+        });
+        return def;
+    },
+
+    /**
+     * Constructor
+     *
+     * Spec options:
+     *
+     * * providers - list of spec or search providers
+     */
+    constructor: function(spec) {
+        this.providers = builder.build(null, spec.providers || [], {}, {
+            $ctor: exp.CBSearchProvider
+        });
+    }
+});
+
+
+
+/**
  * Combobox widget
  *
  * Widget which allows to select a value from a predefined set or write custom
@@ -3584,13 +3769,16 @@ IPA.combobox_widget = function(spec) {
 
     var that = IPA.text_widget(spec);
 
-    that.editable = spec.editable;
+    that.editable = spec.editable === undefined ? false : spec.editable;
     that.searchable = spec.searchable;
     that.size = spec.size || 5;
     that.empty_option = spec.empty_option === undefined ? true : spec.empty_option;
     that.options = spec.options || [];
     that.z_index = spec.z_index ? spec.z_index + 9000000 : 9000000;
     that.base_css_class = that.base_css_class + ' combobox-widget';
+    that.search_provider = builder.build(null, spec.search_provider, {}, {
+        $ctor: exp.CBSearchProvider
+    });
 
     that.create = function(container) {
         that.widget_create(container);
@@ -3876,8 +4064,15 @@ IPA.combobox_widget = function(spec) {
 
     that.search = function(filter, on_success, on_error) {
 
-        that.recreate_options();
-        if (on_success) on_success.call(this);
+        if (!that.search_provider) {
+            that.set_options(that.options);
+            return;
+        }
+        if (on_success) on.once(that.search_provider, 'success', on_success);
+        if (on_error) on.once(that.search_provider, 'error', on_error);
+        when(that.search_provider.search(filter), function(options) {
+            that.set_options(options);
+        });
     };
 
     that.set_options = function(options) {
@@ -4025,8 +4220,6 @@ IPA.combobox_widget = function(spec) {
  * Specialized combobox which allows to select an entity. Widget performs
  * search - an RPC call - to get a list of entities.
  *
- * TODO: document properties and methods
- *
  * @class
  * @extends IPA.combobox_widget
  *
@@ -4040,58 +4233,13 @@ IPA.entity_select_widget = function(spec) {
 
     spec = spec || {};
     spec.searchable = spec.searchable === undefined ? true : spec.searchable;
-
+    spec.search_provider = spec.search_provider || {
+        $ctor: exp.EntityCBSearchProvider,
+        entity: spec.other_entity,
+        param: spec.other_field,
+        filter_options: spec.filter_options || {}
+    };
     var that = IPA.combobox_widget(spec);
-
-    that.other_entity = IPA.get_entity(spec.other_entity);
-    that.other_field = spec.other_field;
-
-    that.options = spec.options || [];
-    that.filter_options = spec.filter_options || {};
-
-    that.create_search_command = function(filter) {
-        return rpc.command({
-            entity: that.other_entity.name,
-            method: 'find',
-            args: [filter],
-            options: that.filter_options
-        });
-    };
-
-    that.search = function(filter, on_success, on_error) {
-
-        that.on_search_success = on_success;
-
-        var command = that.create_search_command(filter);
-        command.on_success = that.search_success;
-        command.on_error = on_error;
-
-        command.execute();
-    };
-
-    that.search_success = function(data, text_status, xhr) {
-
-        var adapter = builder.build('adapter', 'adapter', { context: that });
-
-        //get options
-        var options = [];
-
-        var entries = data.result.result;
-        for (var i=0; i<data.result.count; i++) {
-            var entry = entries[i];
-            var values = adapter.load(entry, that.other_field);
-            var value = values[0];
-
-            options.push(value);
-        }
-
-        that.set_options(options);
-
-        if (that.on_search_success) that.on_search_success.call(this, data, text_status, xhr);
-    };
-
-    that.entity_select_set_options = that.set_options;
-
     return that;
 };
 

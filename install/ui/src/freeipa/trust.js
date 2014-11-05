@@ -24,11 +24,12 @@ define([
         './menu',
         './phases',
         './reg',
+        './widget',
         './details',
         './search',
         './association',
         './entity'],
-            function(IPA, $, menu, phases, reg) {
+            function(IPA, $, menu, phases, reg, mod_widget) {
 
 var exp = IPA.trust = {};
 
@@ -348,13 +349,23 @@ return {
                         'ipantflatname',
                         'ipantdomainguid',
                         {
-                            $type: 'trust_fallbackgroup_select',
+                            $type: 'combobox',
                             name: 'ipantfallbackprimarygroup',
-                            other_entity: 'group',
-                            other_field: 'cn',
                             empty_option: false,
-                            filter_options: {
-                                posix: true
+                            search_provider: {
+                                $ctor: mod_widget.JointCBSearchProvider,
+                                providers: [
+                                    {
+                                        options: ['Default SMB Group']
+                                    },
+                                    {
+                                        $ctor: mod_widget.EntityCBSearchProvider,
+                                        entity: 'group',
+                                        filter_options: {
+                                            posix: true
+                                        }
+                                    }
+                                ]
                             }
                         }
                     ]
@@ -395,18 +406,6 @@ IPA.trust.config_details_facet = function(spec) {
     return that;
 };
 
-IPA.trust.fallbackgroup_select_widget = function(spec) {
-    var that = IPA.entity_select_widget(spec);
-
-    that.set_options = function(options) {
-        // always add 'Default SMB Group', it can't be obtained by group-find.
-        options.unshift('Default SMB Group');
-        that.entity_select_set_options(options);
-    };
-
-    return that;
-};
-
 exp.remove_menu_item = function() {
     if (!IPA.trust_enabled) {
         menu.remove_item('ipaserver/trusts');
@@ -426,9 +425,6 @@ IPA.trust.register = function() {
     e.register({type: 'trust', spec: exp.trust_spec});
     e.register({type: 'trustdomain', spec: exp.trustdomain_spec});
     e.register({type: 'trustconfig', spec: exp.trustconfig_spec});
-
-    w.register('trust_fallbackgroup_select', IPA.trust.fallbackgroup_select_widget);
-    f.register('trust_fallbackgroup_select', IPA.field);
 };
 
 phases.on('registration', IPA.trust.register);
