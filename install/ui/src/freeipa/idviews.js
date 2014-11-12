@@ -20,7 +20,10 @@
  */
 
 define([
+        'dojo/_base/declare',
+        'dojo/Deferred',
         'dojo/on',
+        'dojo/when',
         './ipa',
         './jquery',
         './menu',
@@ -30,9 +33,11 @@ define([
         './text',
         './details',
         './facet',
+        './widget',
         './search',
         './entity'],
-            function(on, IPA, $, menu, phases, reg, rpc, text, mod_details, mod_facet) {
+            function(declare, Deferred, on, when, IPA, $, menu, phases,
+                reg, rpc, text, mod_details, mod_facet, mod_widget) {
 /**
  * ID Views module
  * @class
@@ -274,21 +279,36 @@ return {
         ],
         fields: [
             {
-                $type: 'entity_select',
+                $type: 'combobox',
                 label: '@i18n:objects.idoverrideuser.anchor_label',
                 name: 'ipaanchoruuid',
-                other_entity: 'user',
-                other_field: 'uid',
                 editable: true,
-                tooltip: '@i18n:objects.idoverrideuser.anchor_tooltip'
+                tooltip: '@i18n:objects.idoverrideuser.anchor_tooltip',
+                search_provider: {
+                    $ctor: mod_widget.JointCBSearchProvider,
+                    providers: [
+                        {
+                            $ctor: idviews.TrustSuffixCBSearchProvider
+                        },
+                        {
+                            $ctor: mod_widget.EntityCBSearchProvider,
+                            entity: 'user'
+                        }
+                    ]
+                }
             },
             {
+                $type: 'combobox',
                 label: '@i18n:objects.idoverrideuser.anchor_label',
                 name: 'ipaanchoruuid_default',
                 param: 'ipaanchoruuid',
                 tooltip: '@i18n:objects.idoverrideuser.anchor_tooltip_ad',
                 visible: false,
-                enabled: false
+                enabled: false,
+                editable: true,
+                search_provider: {
+                    $ctor: idviews.TrustSuffixCBSearchProvider
+                }
             },
             'uid',
             'gecos',
@@ -361,18 +381,33 @@ return {
                 $type: 'entity_select',
                 label: '@i18n:objects.idoverridegroup.anchor_label',
                 name: 'ipaanchoruuid',
-                other_entity: 'group',
-                other_field: 'cn',
                 editable: true,
-                tooltip: '@i18n:objects.idoverridegroup.anchor_tooltip'
+                tooltip: '@i18n:objects.idoverridegroup.anchor_tooltip',
+                search_provider: {
+                    $ctor: mod_widget.JointCBSearchProvider,
+                    providers: [
+                        {
+                            $ctor: idviews.TrustSuffixCBSearchProvider
+                        },
+                        {
+                            $ctor: mod_widget.EntityCBSearchProvider,
+                            entity: 'group'
+                        }
+                    ]
+                }
             },
             {
+                $type: 'combobox',
                 label: '@i18n:objects.idoverridegroup.anchor_label',
                 name: 'ipaanchoruuid_default',
                 param: 'ipaanchoruuid',
                 tooltip: '@i18n:objects.idoverridegroup.anchor_tooltip_ad',
                 visible: false,
-                enabled: false
+                enabled: false,
+                editable: true,
+                search_provider: {
+                    $ctor: idviews.TrustSuffixCBSearchProvider
+                }
             },
             'cn',
             'gidnumber',
@@ -453,6 +488,37 @@ idviews.idoverride_adder_policy = function (spec) {
 
     return that;
 };
+
+/**
+ * Search provider which returns trusted domains in form of suffixes
+ * @class
+ * @extends widget.EntityCBSearchProvider
+ */
+idviews.TrustSuffixCBSearchProvider = declare([mod_widget.EntityCBSearchProvider], {
+
+    /**
+     * @inheritDoc
+     * @protected
+     */
+    _search: function(filter) {
+        if (!IPA.trust_enabled) return [];
+        var def = new Deferred();
+        when(this.inherited(arguments), function(results) {
+            for (var i=0, l=results.length; i<l; i++) {
+                results[i] = '@'+results[i];
+            }
+            def.resolve(results);
+        }, function(error) {
+            def.reject(error);
+        });
+        return def;
+    },
+
+    constructor: function(spec) {
+        this.entity = this.entity || reg.entity.get('trust');
+        this.param = this.param || 'cn';
+    }
+});
 
 /**
  * Apply Id view on hosts on hostgroup action base class
