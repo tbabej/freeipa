@@ -299,6 +299,8 @@ package.
 %if ! %{ONLY_CLIENT}
 %package tests
 Summary: IPA tests and test tools
+BuildRequires: python-pytest-multihost >= 0.5
+BuildRequires: python-pytest-sourceorder
 Requires: %{name}-client = %{version}-%{release}
 Requires: %{name}-python = %{version}-%{release}
 Requires: tar
@@ -308,7 +310,7 @@ Requires: pytest >= 2.6
 Requires: python-paste
 Requires: python-coverage
 Requires: python-polib
-Requires: python-pytest-multihost >= 0.4
+Requires: python-pytest-multihost >= 0.5
 Requires: python-pytest-sourceorder
 
 Conflicts: %{alt_name}-tests
