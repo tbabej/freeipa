@@ -360,6 +360,23 @@ This package contains tests that verify IPA functionality.
 
 %endif # ONLY_CLIENT
 
+%if ! %{ONLY_CLIENT}
+%package diag
+Summary: IPA diagnostics tool
+Requires: %{name}-client = %{version}-%{release}
+Requires: %{name}-python = %{version}-%{release}
+Conflicts: %{alt_name}-diag
+Obsoletes: %{alt_name}-diag < %{version}
+
+%description diag
+IPA is an integrated solution to provide centrally managed Identity (machine,
+user, virtual machines, groups, authentication credentials), Policy
+(configuration settings, access control information) and Audit (events,
+logs, analysis thereof).
+This package contains diagnostics tools that verify functionality of IPA
+deployment.
+
+%endif # ONLY_CLIENT
 
 %prep
 %setup -n freeipa-%{version} -q
@@ -535,6 +552,10 @@ mkdir -p %{buildroot}%{_sysconfdir}/cron.d
 (cd %{buildroot}/%{python_sitelib}/ipatests && find . -type f  | \
     sed -e 's,\.py.*$,.*,g' | sort -u | \
     sed -e 's,\./,%%{python_sitelib}/ipatests/,g' ) >tests-python.list
+
+(cd %{buildroot}/%{python_sitelib}/ipadiag && find . -type f  | \
+    sed -e 's,\.py.*$,.*,g' | sort -u | \
+    sed -e 's,\./,%%{python_sitelib}/ipadiag/,g' ) >diag-python.list
 %endif # ONLY_CLIENT
 
 %clean
@@ -989,6 +1010,17 @@ fi
 %{_mandir}/man1/ipa-run-tests.1.gz
 %{_mandir}/man1/ipa-test-config.1.gz
 %{_mandir}/man1/ipa-test-task.1.gz
+%endif # ONLY_CLIENT
+
+%if ! %{ONLY_CLIENT}
+%files diag -f diag-python.list
+%defattr(-,root,root,-)
+%dir %{python_sitelib}/ipadiag
+%dir %{python_sitelib}/ipadiag/reporters
+%dir %{python_sitelib}/ipadiag/reporters/plugins
+%dir %{python_sitelib}/ipadiag/doctors
+%dir %{python_sitelib}/ipadiag/doctors/plugins
+%{_sbindir}/ipa-diag
 %endif # ONLY_CLIENT
 
 %changelog

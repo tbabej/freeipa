@@ -45,7 +45,7 @@ IGNORE_PATHS = (
 
 class IPATypeChecker(TypeChecker):
     NAMESPACE_ATTRS = ['Command', 'Object', 'Method', 'Backend', 'Updater',
-        'Advice']
+        'Advice', 'Reporter', 'Doctor', 'DomainReporter', 'DomainDoctor']
     LOGGING_ATTRS = ['log', 'debug', 'info', 'warning', 'error', 'exception',
         'critical']
 

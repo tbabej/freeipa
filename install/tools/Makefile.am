@@ -29,6 +29,7 @@ sbin_SCRIPTS =			\
 	ipa-advise		\
 	ipa-cacert-manage	\
 	ipa-winsync-migrate	\
+	ipa-diag		\
 	$(NULL)
 
 EXTRA_DIST =			\

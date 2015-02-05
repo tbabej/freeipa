@@ -674,6 +674,31 @@ class textui(backend.Backend):
         self.print_line('')
         return selection
 
+    def display_progressbar(self, current, maximum, prefix="", size=None):
+
+        if size is None:
+            max_width = self.get_tty_width()
+            reserved_space = len(prefix) + 5 + 2 * len(str(maximum))
+            size = max_width - reserved_space
+
+        progress = float(current) / maximum if maximum > 0 else 1
+        filled_tiles = int(size * progress)
+        empty_tiles = size - filled_tiles
+
+        template = "{0} [{1}{2}] {3}/{4}"
+        output = template.format(
+            prefix,
+            filled_tiles * '#',
+            empty_tiles * '.',
+            current,
+            maximum
+        )
+
+        sys.stdout.write(output)
+        sys.stdout.write('\n' if current == maximum else '\r')
+        sys.stdout.flush()
+
+
 class help(frontend.Local):
     """
     Display help for a command or topic.

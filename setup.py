@@ -76,6 +76,11 @@ setup(
     license='GPLv3+',
     url='http://freeipa.org/',
     packages=[
+        'ipadiag',
+        'ipadiag.doctors',
+        'ipadiag.doctors.plugins',
+        'ipadiag.reporters',
+        'ipadiag.reporters.plugins',
         'ipalib',
         'ipalib.plugins',
         'ipaserver',

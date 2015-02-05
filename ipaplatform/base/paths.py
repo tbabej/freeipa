@@ -161,6 +161,7 @@ class BasePathNamespace(object):
     PKCS12EXPORT = "/usr/bin/PKCS12Export"
     CERTUTIL = "/usr/bin/certutil"
     CHROMIUM_BROWSER = "/usr/bin/chromium-browser"
+    DIG = "/usr/bin/dig"
     DS_NEWINST_PL = "/usr/bin/ds_newinst.pl"
     FIREFOX = "/usr/bin/firefox"
     GETCERT = "/usr/bin/getcert"
