@@ -668,6 +668,7 @@ fi
 %{_sbindir}/ipactl
 %{_sbindir}/ipa-upgradeconfig
 %{_sbindir}/ipa-advise
+%{_sbindir}/ipa-diag
 %{_sbindir}/ipa-cacert-manage
 %{_libexecdir}/certmonger/dogtag-ipa-ca-renew-agent-submit
 %{_libexecdir}/certmonger/ipa-server-guard
@@ -692,6 +693,9 @@ fi
 %attr(644,root,root) %{_unitdir}/ipa-ods-exporter.socket
 %attr(644,root,root) %{_unitdir}/ipa-ods-exporter.service
 # END
+%dir %{python_sitelib}/ipadiag
+%dir %{python_sitelib}/ipadiag/reporters
+%dir %{python_sitelib}/ipadiag/doctors
 %dir %{python_sitelib}/ipaserver
 %dir %{python_sitelib}/ipaserver/install
 %dir %{python_sitelib}/ipaserver/install/plugins
