@@ -113,8 +113,6 @@ class AdminTool(object):
                 action="store_true", help="alias for --verbose (deprecated)")
         group.add_option("-q", "--quiet", dest="quiet", default=False,
             action="store_true", help="output only errors")
-        group.add_option("--log-file", dest="log_file", default=None,
-            metavar="FILE", help="log to the given file")
         parser.add_option_group(group)
 
     @classmethod
@@ -208,9 +206,8 @@ class AdminTool(object):
         :param _to_file: Setting this to false will disable logging to file.
             For internal use.
 
-        If the --log-file option was given or if a filename is in
-        self.log_file_name, the tool will log to that file. In this case,
-        all messages are logged.
+        If self.log_file_name is set, the tool will log to that file.
+        In this case, all messages are logged.
 
         What is logged to the console depends on command-line options:
         the default is INFO; --quiet sets ERROR; --verbose sets DEBUG.
@@ -232,12 +229,8 @@ class AdminTool(object):
         self._setup_logging(log_file_mode=log_file_mode)
 
     def _setup_logging(self, log_file_mode='w', no_file=False):
-        if no_file:
-            log_file_name = None
-        elif self.options.log_file:
-            log_file_name = self.options.log_file
-        else:
-            log_file_name = self.log_file_name
+        log_file_name = None if no_file else self.log_file_name
+
         if self.options.verbose:
             console_format = '%(name)s: %(levelname)s: %(message)s'
             verbose = True
@@ -249,10 +242,12 @@ class AdminTool(object):
                 verbose = False
             else:
                 verbose = True
+
         ipa_log_manager.standard_logging_setup(
             log_file_name, console_format=console_format,
             filemode=log_file_mode, debug=debug, verbose=verbose)
         self.log = ipa_log_manager.log_mgr.get_logger(self)
+
         if log_file_name:
             self.log.debug('Logging to %s' % log_file_name)
         elif not no_file:
