@@ -49,11 +49,12 @@ from ipalib import plugable
 from ipalib.errors import (PublicError, CommandError, HelpError, InternalError,
                            NoSuchNamespaceError, ValidationError, NotFound,
                            NotConfiguredError, PromptFailed)
-from ipalib.constants import CLI_TAB, LDAP_GENERALIZED_TIME_FORMAT
+from ipalib.constants import CLI_TAB
 from ipalib.parameters import File, Str, Enum, Any, Flag
 from ipalib.text import _
 from ipalib import api  # pylint: disable=unused-import
 from ipapython.dnsutil import DNSName
+from ipapython import ipautil
 
 import datetime
 
@@ -169,7 +170,7 @@ class textui(backend.Backend):
         if type(value) is bytes:
             return base64.b64encode(value)
         elif type(value) is datetime.datetime:
-            return value.strftime(LDAP_GENERALIZED_TIME_FORMAT)
+            return ipautil.datetime_to_ldap_gentime(value)
         elif isinstance(value, DNSName):
             return unicode(value)
         else:

@@ -185,7 +185,7 @@ def xml_wrap(value, version):
         if capabilities.client_has_capability(version, 'datetime_values'):
             return DateTime(value)
         else:
-            return value.strftime(LDAP_GENERALIZED_TIME_FORMAT)
+            return ipautil.datetime_to_ldap_gentime(value)
 
     if isinstance(value, DNSName):
         if capabilities.client_has_capability(version, 'dns_name_values'):
@@ -304,9 +304,9 @@ def json_encode_binary(val, version):
         return str(val)
     elif isinstance(val, datetime.datetime):
         if capabilities.client_has_capability(version, 'datetime_values'):
-            return {'__datetime__': val.strftime(LDAP_GENERALIZED_TIME_FORMAT)}
+            return {'__datetime__': ipautil.datetime_to_ldap_gentime(val)}
         else:
-            return val.strftime(LDAP_GENERALIZED_TIME_FORMAT)
+            return ipautil.datetime_to_ldap_gentime(val)
     elif isinstance(val, DNSName):
         if capabilities.client_has_capability(version, 'dns_name_values'):
             return {'__dns_name__': unicode(val)}

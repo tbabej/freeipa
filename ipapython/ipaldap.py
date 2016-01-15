@@ -38,7 +38,7 @@ import six
 
 from ipalib import errors, _
 from ipalib.constants import LDAP_GENERALIZED_TIME_FORMAT
-from ipapython.ipautil import (
+from ipapython.ipautil import (datetime_to_ldap_gentime,
     format_netloc, wait_for_open_socket, wait_for_open_ports, CIDict)
 from ipapython.ipa_log_manager import log_mgr
 from ipapython.dn import DN
@@ -858,7 +858,7 @@ class LDAPClient(object):
             dct = dict((self.encode(k), self.encode(v)) for k, v in val.items())
             return dct
         elif isinstance(val, datetime.datetime):
-            return val.strftime(LDAP_GENERALIZED_TIME_FORMAT)
+            return datetime_to_ldap_gentime(val)
         elif val is None:
             return None
         else:

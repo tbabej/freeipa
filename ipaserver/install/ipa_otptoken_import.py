@@ -34,7 +34,7 @@ import gssapi
 import six
 from six.moves import xrange
 
-from ipapython import admintool
+from ipapython import admintool, ipautil
 from ipalib import api, errors
 from ipaserver.plugins.ldap2 import AUTOBIND_DISABLED
 
@@ -409,7 +409,7 @@ class PSKCKeyPackage(object):
         dates = (data.get(key + '.sw', None), data.get(key + '.hw', None))
         dates = [x for x in dates if x is not None]
         if dates:
-            out['ipatoken' + key] = unicode(reducer(dates).strftime("%Y%m%d%H%M%SZ"))
+            out['ipatoken' + key] = unicode(ipautil.datetime_to_ldap_gentime(reducer(dates)))
 
 
 class PSKCDocument(object):

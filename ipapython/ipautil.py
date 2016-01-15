@@ -832,6 +832,23 @@ def parse_generalized_time(timestr):
     except ValueError:
         return None
 
+def datetime_to_ldap_gentime(value):
+    """
+    Converts a datetime.datetime instance to a string representation,
+    circumventing Python bug which occurs for dates older than 1900:
+        https://bugs.python.org/issue1777412
+
+    Note: The inverse conversion using strptime works fine even for
+    such dates, therefore a symmetric conversion function is not necessary.
+    """
+
+    if not isinstance(value, datetime.datetime):
+        raise ValueError("Only datetime.datetime can be converted to"
+                         "LDAP generalized time")
+
+    return ('{0.year:4d}{0.month:02d}{0.day:02d}{0.hour:02d}'
+            '{0.minute:02d}{0.second:02d}Z').format(value)
+
 def ipa_generate_password(characters=None,pwd_len=None):
     ''' Generates password. Password cannot start or end with a whitespace
     character. It also cannot be formed by whitespace characters only.
